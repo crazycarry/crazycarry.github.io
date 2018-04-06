@@ -2,10 +2,6 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="baidu-site-verification" content="L6Lm9d5Crl"/>
-  
-  
-  
   
   <title>Hexo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
@@ -23,7 +19,7 @@
     <link rel="icon" href="/img/favicon.png">
   
   
-  <link rel="stylesheet" href="//cdn.bootcss.com/animate.css/3.5.0/animate.min.css">
+      <link rel="stylesheet" href="//cdn.bootcss.com/animate.css/3.5.0/animate.min.css">
   
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/font-awesome/css/font-awesome.min.css">
@@ -40,6 +36,7 @@
     <link href="/css/pace/pace-theme-flash.css" rel="stylesheet" />
   <script>
       var yiliaConfig = {
+          rootUrl: '/',
           fancybox: true,
           animate: true,
           isHome: true,
@@ -57,67 +54,17 @@
     <div class="overlay"></div>
 <div class="intrude-less">
     <header id="header" class="inner">
-        <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
         <a href="/" class="profilepic">
             
-            <img lazy-src="/img/avatar.png" class="js-avatar">
+            <img lazy-src="/img/head.jpg" class="js-avatar">
             
         </a>
+
         <hgroup>
-          <h1 class="header-author"><a href="/">Crazy Carry</a></h1>
+          <h1 class="header-author"><a href="/" title="Hi Mate">Crazy Carry</a></h1>
         </hgroup>
+
         
-        
-            <form>
-                <input type="text" class="st-default-search-input search" id="local-search-input" placeholder="搜索一下" autocomplete="off">
-            </form>
-            <div id="local-search-result"></div>
-        
-        
-            <script type="text/javascript">
-                (function() {
-                    'use strict';
-                    function getMatchData(keyword, data) {
-                        var matchData = [];
-                        for(var i =0;i<data.length;i++){
-                            if(data[i].title.toLowerCase().indexOf(keyword)>=0) 
-                                matchData.push(data[i])
-                        }
-                        return matchData;
-                    }
-                    var $input = $('#local-search-input');
-                    var $resultContent = $('#local-search-result');
-                    $input.keyup(function(){
-                        $.ajax({
-                            url: '/search.json',
-                            dataType: "json",
-                            success: function( json ) {
-                                var str='<ul class=\"search-result-list\">';                
-                                var keyword = $input.val().trim().toLowerCase();
-                                $resultContent.innerHTML = "";
-                                if ($input.val().trim().length <= 0) {
-                                    $resultContent.empty();
-                                    $('#switch-area').show();
-                                    return;
-                                }
-                                var results = getMatchData(keyword, json);
-                                if(results.length === 0){
-                                    $resultContent.empty();
-                                    $('#switch-area').show();
-                                    return;
-                                } 
-                                for(var i =0; i<results.length; i++){
-                                    str += "<li><a href='"+ results[i].url +"' class='search-result-title'>"+ results[i].title +"</a></li>";
-                                }
-                                str += "</ul>";
-                                $resultContent.empty();
-                                $resultContent.append(str);
-                                $('#switch-area').hide();
-                            }
-                        });
-                    });
-                })();
-            </script>
         
         
             <div id="switch-btn" class="switch-btn">
@@ -143,6 +90,7 @@
                         </div>
                         
                     </div>
+                    
                 </div>
                 <div class="tips-box hide">
                     <div class="tips-arrow"></div>
@@ -159,36 +107,44 @@
                 </div>
             </div>
         
+
         <div id="switch-area" class="switch-area">
             <div class="switch-wrap">
                 <section class="switch-part switch-part1">
                     <nav class="header-menu">
                         <ul>
                         
-                            <li><a  href="/archives/">所有文章</a></li>
+                            <li><a href="/category/java">Java</a></li>
                         
-                            <li><a  href="/categories/java/">Java</a></li>
+                            <li><a href="/category/spark">Spark</a></li>
                         
-                            <li><a  href="/categories/spark">Spark</a></li>
+                            <li><a href="/category/kafka">Kafka</a></li>
                         
-                            <li><a  href="/categories/kafka">Kafka</a></li>
-                        
-                            <li><a  href="/about/">关于我</a></li>
+                            <li><a href="/category/大数据">大数据</a></li>
                         
                         </ul>
                     </nav>
                     <nav class="header-nav">
                         <ul class="social">
                             
-                                <a class="fl github"  target="_blank" href="/xxxxx" title="github">github</a>
+                                <a class="fl mail" target="_blank" href="http://mail.qq.com/cgi-bin/qm_share?t=qm_mailme&email=PAkNDgsKBQ4MCnxNTRJfU1E" title="mail">mail</a>
                             
-                                <a class="fl weibo"  target="_blank" href="/xxxxxxxx" title="weibo">weibo</a>
+                                <a class="fl github" target="_blank" href="https://github.com/luuman" title="github">github</a>
                             
-                                <a class="fl rss"  target="_blank" href="/atom.xml" title="rss">rss</a>
+                                <a class="fl zhihu" target="_blank" href="#" title="zhihu">zhihu</a>
+                            
+                                <a class="fl weibo" target="_blank" href="#" title="weibo">weibo</a>
+                            
+                                <a class="fl google" target="_blank" href="#" title="google">google</a>
+                            
+                                <a class="fl twitter" target="_blank" href="#" title="twitter">twitter</a>
+                            
+                                <a class="fl linkedin" target="_blank" href="#" title="linkedin">linkedin</a>
                             
                         </ul>
                     </nav>
                 </section>
+                
                 
                 <section class="switch-part switch-part2">
                     <div class="widget tagcloud" id="js-tagcloud">
@@ -197,60 +153,55 @@
                 </section>
                 
                 
+                
                 <section class="switch-part switch-part3">
                     <div id="js-friends">
                     
-                      <a target="_blank"  class="main-nav-link switch-friends-link" href="http://blog.csdn.net/baidu_21483933">csdn</a>
-                    
-                      <a target="_blank"  class="main-nav-link switch-friends-link" href="https://segmentfault.com/blog/maocg_web">segmentfault</a>
-                    
-                      <a target="_blank"  class="main-nav-link switch-friends-link" href="http://www.jianshu.com/users/eb37ef89c746/latest_articles">简书</a>
+                      <a target="_blank" class="main-nav-link switch-friends-link" href="http://luuman.github.io/">name</a>
                     
                     </div>
                 </section>
                 
+
                 
                 
                 <section class="switch-part switch-part4">
                 
-                    <div id="js-aboutme">爱动漫,爱游戏,爱编程,爱运动,爱的太多了!</div>
+                    <div id="js-aboutme">纯海迷、爱运动、爱交友、爱旅行、喜欢接触新鲜事物、迎接新的挑战，更爱游离于错综复杂的编码与逻辑中</div>
                 </section>
                 
             </div>
         </div>
-    </header>
+    </header>                
 </div>
-
     </div>
     <div class="mid-col">
       <nav id="mobile-nav">
       <div class="overlay">
           <div class="slider-trigger"></div>
-          <h1 class="header-author js-mobile-header hide"><a href="/" title="回到主页">Crazy Carry</a></h1>
+          <h1 class="header-author js-mobile-header hide"><a href="/" title="Me">Crazy Carry</a></h1>
       </div>
     <div class="intrude-less">
         <header id="header" class="inner">
             <a href="/" class="profilepic">
                 
-                    <img lazy-src="/img/avatar.png" class="js-avatar">
+                    <img lazy-src="/img/head.jpg" class="js-avatar">
                 
             </a>
             <hgroup>
-              <h1 class="header-author"><a href="/" title="回到主页">Crazy Carry</a></h1>
+              <h1 class="header-author"><a href="/" title="Me">Crazy Carry</a></h1>
             </hgroup>
             
             <nav class="header-menu">
                 <ul>
                 
-                    <li><a href="/archives/">所有文章</a></li>
+                    <li><a href="/category/java">Java</a></li>
                 
-                    <li><a href="/categories/java/">Java</a></li>
+                    <li><a href="/category/spark">Spark</a></li>
                 
-                    <li><a href="/categories/spark">Spark</a></li>
+                    <li><a href="/category/kafka">Kafka</a></li>
                 
-                    <li><a href="/categories/kafka">Kafka</a></li>
-                
-                    <li><a href="/about/">关于我</a></li>
+                    <li><a href="/category/大数据">大数据</a></li>
                 
                 <div class="clearfix"></div>
                 </ul>
@@ -258,11 +209,19 @@
             <nav class="header-nav">
                 <div class="social">
                     
-                        <a class="github" target="_blank" href="/xxxxx" title="github">github</a>
+                        <a class="mail" target="_blank" href="http://mail.qq.com/cgi-bin/qm_share?t=qm_mailme&email=PAkNDgsKBQ4MCnxNTRJfU1E" title="mail">mail</a>
                     
-                        <a class="weibo" target="_blank" href="/xxxxxxxx" title="weibo">weibo</a>
+                        <a class="github" target="_blank" href="https://github.com/luuman" title="github">github</a>
                     
-                        <a class="rss" target="_blank" href="/atom.xml" title="rss">rss</a>
+                        <a class="zhihu" target="_blank" href="#" title="zhihu">zhihu</a>
+                    
+                        <a class="weibo" target="_blank" href="#" title="weibo">weibo</a>
+                    
+                        <a class="google" target="_blank" href="#" title="google">google</a>
+                    
+                        <a class="twitter" target="_blank" href="#" title="twitter">twitter</a>
+                    
+                        <a class="linkedin" target="_blank" href="#" title="linkedin">linkedin</a>
                     
                 </div>
             </nav>
@@ -274,10 +233,9 @@
     <article id="post-java-gc-performance" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/06/java-gc-performance/" class="article-date">
+      <a href="/2018/04/06/java-gc-performance/" class="article-date">
       <time datetime="2018-04-05T16:01:44.000Z" itemprop="datePublished">2018-04-06</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -289,10 +247,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/06/java-gc-performance/">从实际案例聊聊Java应用的GC优化</a>
+      <a class="article-title" href="/2018/04/06/java-gc-performance/">从实际案例聊聊Java应用的GC优化</a>
     </h1>
   
-
 
       </header>
       
@@ -304,6 +261,7 @@
 <blockquote>
 <p>优化前准备: 简单回顾JVM相关知识、介绍GC优化的一些通用策略。<br>优化方法: 介绍调优的一般流程：明确优化目标→优化→跟踪优化结果。<br>优化案例: 简述笔者所在团队遇到的GC问题以及优化方案。<br>
           
+      
       
     </div>
     
@@ -322,7 +280,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/06/java-gc-performance/#more">查看更多 >></a>
+          <a  href="/2018/04/06/java-gc-performance/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -331,8 +289,6 @@
   </div>
   
 </article>
-
-
 
 
 
@@ -346,10 +302,9 @@
     <article id="post-java-cas" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/05/java-cas/" class="article-date">
+      <a href="/2018/04/05/java-cas/" class="article-date">
       <time datetime="2018-04-05T15:51:55.000Z" itemprop="datePublished">2018-04-05</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -361,10 +316,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/05/java-cas/">深入分析CAS</a>
+      <a class="article-title" href="/2018/04/05/java-cas/">深入分析CAS</a>
     </h1>
   
-
 
       </header>
       
@@ -374,6 +328,7 @@
           
               <p>CAS，Compare And Swap，即比较并交换。Doug lea大神在同步组件中大量使用CAS技术鬼斧神工地实现了Java多线程的并发操作。整个AQS同步组件、Atomic原子类操作等等都是以CAS实现的，甚至ConcurrentHashMap在1.8的版本中也调整为了CAS+Synchronized。可以说CAS是整个JUC的基石。<br>
           
+      
       
     </div>
     
@@ -392,7 +347,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/05/java-cas/#more">查看更多 >></a>
+          <a  href="/2018/04/05/java-cas/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -401,8 +356,6 @@
   </div>
   
 </article>
-
-
 
 
 
@@ -416,10 +369,9 @@
     <article id="post-java-volatile" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/05/java-volatile/" class="article-date">
+      <a href="/2018/04/05/java-volatile/" class="article-date">
       <time datetime="2018-04-05T15:37:15.000Z" itemprop="datePublished">2018-04-05</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -431,10 +383,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/05/java-volatile/">深入分析volatile</a>
+      <a class="article-title" href="/2018/04/05/java-volatile/">深入分析volatile</a>
     </h1>
   
-
 
       </header>
       
@@ -444,6 +395,7 @@
           
               <p>volatile这个关键字可能很多朋友都听说过，或许也都用过。在Java 5之前，它是一个备受争议的关键字，因为在程序中使用它往往会导致出人意料的结果。在Java 5之后，volatile关键字才得以重获生机。<br>volatile关键字虽然从字面上理解起来比较简单，但是要用好不是一件容易的事情。由于volatile关键字是与Java的内存模型有关的，因此在讲述volatile关键之前，我们先来了解一下与内存模型相关的概念和知识，然后分析了volatile关键字的实现原理，最后给出了几个使用volatile关键字的场景。<br>
           
+      
       
     </div>
     
@@ -462,7 +414,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/05/java-volatile/#more">查看更多 >></a>
+          <a  href="/2018/04/05/java-volatile/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -480,16 +432,13 @@
 
 
 
-
-
   
     <article id="post-java-synchronized" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/05/java-synchronized/" class="article-date">
+      <a href="/2018/04/05/java-synchronized/" class="article-date">
       <time datetime="2018-04-05T15:28:06.000Z" itemprop="datePublished">2018-04-05</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -501,10 +450,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/05/java-synchronized/">深入分析synchronized</a>
+      <a class="article-title" href="/2018/04/05/java-synchronized/">深入分析synchronized</a>
     </h1>
   
-
 
       </header>
       
@@ -514,6 +462,7 @@
           
               <p>记得刚刚开始学习Java的时候，一遇到多线程情况就是synchronized，相对于当时的我们来说synchronized是这么的神奇而又强大，那个时候我们赋予它一个名字“同步”，也成为了我们解决多线程情况的百试不爽的良药。但是，随着我们学习的进行我们知道synchronized是一个重量级锁，相对于Lock，它会显得那么笨重，以至于我们认为它不是那么的高效而慢慢摒弃它。<br>诚然，随着Javs SE 1.6对synchronized进行的各种优化后，synchronized并不会显得那么重了。下面跟随LZ一起来探索synchronized的实现机制、Java是如何对它进行了优化、锁优化机制、锁的存储结构和升级过程；<br>
           
+      
       
     </div>
     
@@ -532,7 +481,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/05/java-synchronized/#more">查看更多 >></a>
+          <a  href="/2018/04/05/java-synchronized/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -541,8 +490,6 @@
   </div>
   
 </article>
-
-
 
 
 
@@ -556,10 +503,9 @@
     <article id="post-kafka-eos" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/04/kafka-eos/" class="article-date">
+      <a href="/2018/04/04/kafka-eos/" class="article-date">
       <time datetime="2018-04-04T13:46:54.000Z" itemprop="datePublished">2018-04-04</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -571,10 +517,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/04/kafka-eos/">Kafka设计解析（八）- Kafka Exactly Once语义与事务机制原理</a>
+      <a class="article-title" href="/2018/04/04/kafka-eos/">Kafka设计解析（八）- Kafka Exactly Once语义与事务机制原理</a>
     </h1>
   
-
 
       </header>
       
@@ -584,6 +529,7 @@
           
               <p>本文介绍了Kafka实现事务性的几个阶段——正好一次语义与原子操作。之后详细分析了Kafka事务机制的实现原理，并介绍了Kafka如何处理事务相关的异常情况，如Transaction Coordinator宕机。最后介绍了Kafka的事务机制与PostgreSQL的MVCC以及Zookeeper的原子广播实现事务的异同<br>
           
+      
       
     </div>
     
@@ -602,7 +548,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/04/kafka-eos/#more">查看更多 >></a>
+          <a  href="/2018/04/04/kafka-eos/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -611,8 +557,6 @@
   </div>
   
 </article>
-
-
 
 
 
@@ -626,10 +570,9 @@
     <article id="post-kafka-consume-detail" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/04/kafka-consume-detail/" class="article-date">
+      <a href="/2018/04/04/kafka-consume-detail/" class="article-date">
       <time datetime="2018-04-04T11:20:41.000Z" itemprop="datePublished">2018-04-04</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -641,10 +584,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/04/kafka-consume-detail/">Kafka消费者重新实现的细节</a>
+      <a class="article-title" href="/2018/04/04/kafka-consume-detail/">Kafka消费者重新实现的细节</a>
     </h1>
   
-
 
       </header>
       
@@ -654,6 +596,7 @@
           
               <p>上一章分析的消费者高级API使用ConsumerGroup的语义管理多个消费者，但是在消费者或者Partition发生变化时都需要rebalance，它的实现对ZooKeeper依赖比较严重，<br>由Kafka内置实现了失败检测和Rebalance(ZKRebalancerListener)，但是它存在羊群效应和脑裂的问题，客户端代码实现低级API也不能解决这个问题。如果将失败探测和Rebalance的逻辑放到一个高可用的中心Coordinator，这两个问题即可解决。同时还可大大减少Zookeeper的负载，有利于Kafka Broker的扩展(Broker也会作为协调节点的角色存在)。<br>
           
+      
       
     </div>
     
@@ -672,7 +615,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/04/kafka-consume-detail/#more">查看更多 >></a>
+          <a  href="/2018/04/04/kafka-consume-detail/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -681,8 +624,6 @@
   </div>
   
 </article>
-
-
 
 
 
@@ -696,10 +637,9 @@
     <article id="post-kafka-performance-why" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/04/kafka-performance-why/" class="article-date">
+      <a href="/2018/04/04/kafka-performance-why/" class="article-date">
       <time datetime="2018-04-04T10:34:10.000Z" itemprop="datePublished">2018-04-04</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -711,10 +651,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/04/kafka-performance-why/">Kafka设计解析（六）- Kafka高性能架构之道</a>
+      <a class="article-title" href="/2018/04/04/kafka-performance-why/">Kafka设计解析（六）- Kafka高性能架构之道</a>
     </h1>
   
-
 
       </header>
       
@@ -724,6 +663,7 @@
           
               <p>本文从宏观架构层面和微观实现层面分析了Kafka如何实现高性能。包含Kafka如何利用Partition实现并行处理和提供水平扩展能力，如何通过ISR实现可用性和数据一致性的动态平衡，如何使用NIO和Linux的sendfile实现零拷贝以及如何通过顺序读写和数据压缩实现磁盘的高效利用。<br>
           
+      
       
     </div>
     
@@ -742,7 +682,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/04/kafka-performance-why/#more">查看更多 >></a>
+          <a  href="/2018/04/04/kafka-performance-why/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -751,8 +691,6 @@
   </div>
   
 </article>
-
-
 
 
 
@@ -766,10 +704,9 @@
     <article id="post-kafka-controller-source" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/04/kafka-controller-source/" class="article-date">
+      <a href="/2018/04/04/kafka-controller-source/" class="article-date">
       <time datetime="2018-04-04T09:42:52.000Z" itemprop="datePublished">2018-04-04</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -781,10 +718,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/04/kafka-controller-source/">Kafka controller架构分析</a>
+      <a class="article-title" href="/2018/04/04/kafka-controller-source/">Kafka controller架构分析</a>
     </h1>
   
-
 
       </header>
       
@@ -798,6 +734,7 @@
 <li>2.在所有副本中选择一个Leader，生产者和消费者只和Leader副本交互，其他follower副本从Leader同步数据
           
       
+      
     </div>
     
     <div class="article-info article-info-index">
@@ -815,7 +752,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/04/kafka-controller-source/#more">查看更多 >></a>
+          <a  href="/2018/04/04/kafka-controller-source/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -824,8 +761,6 @@
   </div>
   
 </article>
-
-
 
 
 
@@ -839,10 +774,9 @@
     <article id="post-kafka-controller-01" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/04/kafka-controller-01/" class="article-date">
+      <a href="/2018/04/04/kafka-controller-01/" class="article-date">
       <time datetime="2018-04-04T08:30:34.000Z" itemprop="datePublished">2018-04-04</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -854,10 +788,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/04/kafka-controller-01/">Kafka controller 设计分析</a>
+      <a class="article-title" href="/2018/04/04/kafka-controller-01/">Kafka controller 设计分析</a>
     </h1>
   
-
 
       </header>
       
@@ -867,6 +800,7 @@
           
               <p>本文主要参考社区0.11版本Controller的重设计方案，试图给大家梳理一下Kafka controller这个组件在设计上的一些重要思考。众所周知，Kafka中有个关键组件叫controller，负责管理和协调Kafka集群。网上关于controller的源码分析也有很多，本文就不再大段地列出代码重复做这件事情了。实际上，对于controller的代码我一直觉得写的非常混乱，各种调用关系十分复杂，想要完整地理解它的工作原理确实不易。好在我们就是普通的使用者，大致了解controller的工作原理即可。下面我就带各位简要了解一下当前Kafka controller的原理架构以及社区为什么要在大改controller的设计。<br>
           
+      
       
     </div>
     
@@ -885,7 +819,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/04/kafka-controller-01/#more">查看更多 >></a>
+          <a  href="/2018/04/04/kafka-controller-01/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -903,16 +837,13 @@
 
 
 
-
-
   
     <article id="post-spark-memory-manager-02" class="article article-type-post" itemscope itemprop="blogPost">
   
     <div class="article-meta">
-      <a  href="/2018/04/04/spark-memory-manager-02/" class="article-date">
+      <a href="/2018/04/04/spark-memory-manager-02/" class="article-date">
       <time datetime="2018-04-04T08:19:35.000Z" itemprop="datePublished">2018-04-04</time>
 </a>
-
     </div>
   
   <div class="article-inner">
@@ -924,10 +855,9 @@
         
   
     <h1 itemprop="name">
-      <a  class="article-title" href="/2018/04/04/spark-memory-manager-02/">Spark 内存管理之UnifiedMemoryManager</a>
+      <a class="article-title" href="/2018/04/04/spark-memory-manager-02/">Spark 内存管理之UnifiedMemoryManager</a>
     </h1>
   
-
 
       </header>
       
@@ -941,6 +871,7 @@
 <li>内存调优困难，需要对Spark内部原理非常熟悉才能做好</li>
 <li>对不需要Cache的Application的计算场景，只能使用很少一部分内存
           
+      
       
     </div>
     
@@ -959,7 +890,7 @@
 
       
         <p class="article-more-link">
-          <a   href="/2018/04/04/spark-memory-manager-02/#more">查看更多 >></a>
+          <a  href="/2018/04/04/spark-memory-manager-02/#more">大航海 >></a>
         </p>
       
       <div class="clearfix"></div>
@@ -977,15 +908,12 @@
 
 
 
-
-
   
   
     <nav id="page-nav">
       <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/">Next &raquo;</a>
     </nav>
   
-
 </div>
       <footer id="footer">
     <div class="outer">
@@ -994,14 +922,14 @@
                 &copy; 2018 Crazy Carry
             </div>
             <div class="footer-right">
-                <a href="http://hexo.io/" target="_blank">Hexo &nbsp;&nbsp;</a><a href="https://github.com/maochunguang" target="_blank">Blog</a> by tommy
+                <a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/luuman/hexo-theme-spfk" target="_blank">spfk</a> by luuman
             </div>
         </div>
         
             <div class="visit">
                 
                     <span id="busuanzi_container_site_pv" style='display:none'>
-                        <span id="site-visit" >极客到访数: 
+                        <span id="site-visit" >海贼到访数: 
                             <span id="busuanzi_value_site_uv"></span>
                         </span>
                     </span>
@@ -1022,12 +950,12 @@
 </footer>
 
     </div>
-    <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+    <script src="https://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
 <script src="/js/main.js"></script>
 
     <script>
         $(document).ready(function() {
-            var backgroundnum = 1;
+            var backgroundnum = 24;
             var backgroundimg = "url(/background/bg-x.jpg)".replace(/x/gi, Math.ceil(Math.random() * backgroundnum));
             $("#mobile-nav").css({"background-image": backgroundimg,"background-size": "cover","background-position": "center"});
             $(".left-col").css({"background-image": backgroundimg,"background-size": "cover","background-position": "center"});
@@ -1035,30 +963,6 @@
     </script>
 
 
-<!-- Google Analytics -->
-<script type="text/javascript">
-(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-ga('create', 'xxxxx', 'auto');
-ga('send', 'pageview');
-
-</script>
-<!-- End Google Analytics -->
-
-
-
-	<script>
-	var _hmt = _hmt || [];
-	(function() {
-	  var hm = document.createElement("script");
-	  hm.src = "//hm.baidu.com/hm.js?xxxxxx";
-	  var s = document.getElementsByTagName("script")[0]; 
-	  s.parentNode.insertBefore(hm, s);
-	})();
-	</script>
 
 
 
@@ -1085,6 +989,7 @@ ga('send', 'pageview');
             var title = a.attr('title');
             if (title == undefined || title == "") return;
             a.data('title', title).removeAttr('title').hover(
+
             function() {
                 var offset = a.offset();
                 $("<div id=\"anchortitlecontainer\"></div>").appendTo($("body")).html(title).css({
