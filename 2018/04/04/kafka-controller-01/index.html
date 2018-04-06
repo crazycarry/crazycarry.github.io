@@ -119,13 +119,13 @@
                     <nav class="header-menu">
                         <ul>
                         
-                            <li><a href="/category/java">Java</a></li>
+                            <li><a href="/categories/java">Java</a></li>
                         
-                            <li><a href="/category/spark">Spark</a></li>
+                            <li><a href="/categories/spark">Spark</a></li>
                         
-                            <li><a href="/category/kafka">Kafka</a></li>
+                            <li><a href="/categories/kafka">Kafka</a></li>
                         
-                            <li><a href="/category/大数据">大数据</a></li>
+                            <li><a href="/categories/大数据">大数据</a></li>
                         
                         </ul>
                     </nav>
@@ -134,17 +134,13 @@
                             
                                 <a class="fl mail" target="_blank" href="http://mail.qq.com/cgi-bin/qm_share?t=qm_mailme&email=PAkNDgsKBQ4MCnxNTRJfU1E" title="mail">mail</a>
                             
-                                <a class="fl github" target="_blank" href="https://github.com/luuman" title="github">github</a>
+                                <a class="fl github" target="_blank" href="https://github.com/crazycarry" title="github">github</a>
                             
                                 <a class="fl zhihu" target="_blank" href="#" title="zhihu">zhihu</a>
                             
                                 <a class="fl weibo" target="_blank" href="#" title="weibo">weibo</a>
                             
                                 <a class="fl google" target="_blank" href="#" title="google">google</a>
-                            
-                                <a class="fl twitter" target="_blank" href="#" title="twitter">twitter</a>
-                            
-                                <a class="fl linkedin" target="_blank" href="#" title="linkedin">linkedin</a>
                             
                         </ul>
                     </nav>
@@ -200,13 +196,13 @@
             <nav class="header-menu">
                 <ul>
                 
-                    <li><a href="/category/java">Java</a></li>
+                    <li><a href="/categories/java">Java</a></li>
                 
-                    <li><a href="/category/spark">Spark</a></li>
+                    <li><a href="/categories/spark">Spark</a></li>
                 
-                    <li><a href="/category/kafka">Kafka</a></li>
+                    <li><a href="/categories/kafka">Kafka</a></li>
                 
-                    <li><a href="/category/大数据">大数据</a></li>
+                    <li><a href="/categories/大数据">大数据</a></li>
                 
                 <div class="clearfix"></div>
                 </ul>
@@ -216,17 +212,13 @@
                     
                         <a class="mail" target="_blank" href="http://mail.qq.com/cgi-bin/qm_share?t=qm_mailme&email=PAkNDgsKBQ4MCnxNTRJfU1E" title="mail">mail</a>
                     
-                        <a class="github" target="_blank" href="https://github.com/luuman" title="github">github</a>
+                        <a class="github" target="_blank" href="https://github.com/crazycarry" title="github">github</a>
                     
                         <a class="zhihu" target="_blank" href="#" title="zhihu">zhihu</a>
                     
                         <a class="weibo" target="_blank" href="#" title="weibo">weibo</a>
                     
                         <a class="google" target="_blank" href="#" title="google">google</a>
-                    
-                        <a class="twitter" target="_blank" href="#" title="twitter">twitter</a>
-                    
-                        <a class="linkedin" target="_blank" href="#" title="linkedin">linkedin</a>
                     
                 </div>
             </nav>
@@ -317,7 +309,7 @@
 <h4 id="5-Controller按照一个分区一个分区的发送请求"><a href="#5-Controller按照一个分区一个分区的发送请求" class="headerlink" title="5. Controller按照一个分区一个分区的发送请求"></a>5. Controller按照一个分区一个分区的发送请求</h4><p>　　Controller当前发送请求都是按照分区级别发送的，即一个分区一个分区地发送。没有任何batch或并行可言，效率很低。</p>
 <h4 id="6-Controller给broker的请求无版本号信息"><a href="#6-Controller给broker的请求无版本号信息" class="headerlink" title="6. Controller给broker的请求无版本号信息"></a>6. Controller给broker的请求无版本号信息</h4><p>这里的版本号类似于new consumer的generation，总之是要有一种机制告诉controller broker的版本信息。因为有些情况下broker会处理本已过期或失效的请求导致broker状态不一致。举个例子，如果一个broker正常关闭过程中“宕机”了，那么重启之后这个broker就有可能处理之前controller发送过来的StopReplicaRequest，导致某些副本被置成offline从而无法使用。而这肯定不是我们希望看到的结果，对吧？</p>
 <h4 id="7-ZkClient阻碍状态管理"><a href="#7-ZkClient阻碍状态管理" class="headerlink" title="7. ZkClient阻碍状态管理"></a>7. ZkClient阻碍状态管理</h4><p>Contoller目前是使用了ZkClient这个开源工具，它可以自动重建会话并使用特有的线程顺序处理所有的Zookeeper监听消息。因为是顺序处理，它就有可能无法及时响应最新的状态变更导致Kafka集群状态的不一致。</p>
-<h3 id="Controller改进方案"><a href="#Controller改进方案" class="headerlink" title="Controller改进方案"></a>Controller改进方案</h3><h4 id="1-单线程事件模型"><a href="#1-单线程事件模型" class="headerlink" title="1. 单线程事件模型"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#1-%E5%8D%95%E7%BA%BF%E7%A8%8B%E4%BA%8B%E4%BB%B6%E6%A8%A1%E5%9E%8B" title="1\. 单线程事件模型" target="_blank" rel="noopener"></a>1. 单线程事件模型</h4><p>和new consumer类似，controller摒弃多线程的模型，采用单线程的事件队列模型。这样简化了设计同时也避免了复杂的同步机制。各位在最新的trunk分支上已然可以看到这种变化：增加了ControllerEventManager类以及对应的ControllerEventThread线程类专门负责处理ControllerEvent。目前总共有9种controller event，它们分别是：</p>
+<h3 id="Controller改进方案"><a href="#Controller改进方案" class="headerlink" title="Controller改进方案"></a>Controller改进方案</h3><h4 id="1-单线程事件模型"><a href="#1-单线程事件模型" class="headerlink" title="1. 单线程事件模型"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#1-%E5%8D%95%E7%BA%BF%E7%A8%8B%E4%BA%8B%E4%BB%B6%E6%A8%A1%E5%9E%8B" title="1\. 单线程事件模型"></a>1. 单线程事件模型</h4><p>和new consumer类似，controller摒弃多线程的模型，采用单线程的事件队列模型。这样简化了设计同时也避免了复杂的同步机制。各位在最新的trunk分支上已然可以看到这种变化：增加了ControllerEventManager类以及对应的ControllerEventThread线程类专门负责处理ControllerEvent。目前总共有9种controller event，它们分别是：</p>
 <ul>
 <li>Idle</li>
 <li>ControllerChange</li>
@@ -331,12 +323,12 @@
 <li>IsrChange</li>
 </ul>
 <p>我们基本上可以从名字就能判断出它们分别代表了什么事件。</p>
-<h4 id="2-使用Zookeeper的async-API"><a href="#2-使用Zookeeper的async-API" class="headerlink" title="2. 使用Zookeeper的async API"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#2-%E4%BD%BF%E7%94%A8Zookeeper%E7%9A%84async-API" title="2\. 使用Zookeeper的async API" target="_blank" rel="noopener"></a>2. 使用Zookeeper的async API</h4><p>　　将所有同步操作Zookeeper的地方都改成异步调用+回调的方式。实际上Apache Zookeeper客户端执行请求的方式有三种：同步、异步和batch。通常以batch性能最好，但Kafka社区目前还是倾向于用async替换sync。毕竟实现起来相对简单同时性能上也能得到不少提升。</p>
-<h4 id="3-重构状态管理"><a href="#3-重构状态管理" class="headerlink" title="3. 重构状态管理"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#3-%E9%87%8D%E6%9E%84%E7%8A%B6%E6%80%81%E7%AE%A1%E7%90%86" title="3\. 重构状态管理" target="_blank" rel="noopener"></a>3. 重构状态管理</h4><p>可能摒弃之前状态机的方式，采用和GroupCoordinator类似的方式，让controller保存所有的状态并且负责状态的流转以及状态流转过程中的逻辑。当然，具体的实现还要再结合0.11最终代码才能确定。</p>
-<h4 id="4-对请求排定优先级"><a href="#4-对请求排定优先级" class="headerlink" title="4. 对请求排定优先级"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#4-%E5%AF%B9%E8%AF%B7%E6%B1%82%E6%8E%92%E5%AE%9A%E4%BC%98%E5%85%88%E7%BA%A7" title="4\. 对请求排定优先级" target="_blank" rel="noopener"></a>4. 对请求排定优先级</h4><p>　　对管理类请求和数据类请求区分优先级。比如使用优先级队列替换现有的BlockingQueue——社区应该已经实现了这个功能，开发了一个叫PrioritizationAwareBlockingQueue的类来做这件事情，后续大家可以看下这个类的源代码</p>
-<h4 id="5-为controller发送的请求匹配broker版本信息"><a href="#5-为controller发送的请求匹配broker版本信息" class="headerlink" title="5. 为controller发送的请求匹配broker版本信息"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#5-%E4%B8%BAcontroller%E5%8F%91%E9%80%81%E7%9A%84%E8%AF%B7%E6%B1%82%E5%8C%B9%E9%85%8Dbroker%E7%89%88%E6%9C%AC%E4%BF%A1%E6%81%AF" title="5\. 为controller发送的请求匹配broker版本信息" target="_blank" rel="noopener"></a>5. 为controller发送的请求匹配broker版本信息</h4><p>为broker设定版本号(generation id)。如果controller发送过来的请求中包含的generation与broker自己的generation不匹配， 那么broker会拒绝该请求。</p>
-<h4 id="6-抛弃ZkClient，使用原生Zookeeper-client"><a href="#6-抛弃ZkClient，使用原生Zookeeper-client" class="headerlink" title="6. 抛弃ZkClient，使用原生Zookeeper client"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#6-%E6%8A%9B%E5%BC%83ZkClient%EF%BC%8C%E4%BD%BF%E7%94%A8%E5%8E%9F%E7%94%9FZookeeper-client" title="6\. 抛弃ZkClient，使用原生Zookeeper client" target="_blank" rel="noopener"></a>6. 抛弃ZkClient，使用原生Zookeeper client</h4><p>ZkClient是同步顺序处理ZK事件的，而原生Zookeeper client支持async方式。另外使用原生API还能够在接收到状态变更通知时便马上开始处理，而ZkClient的特定线程则必须要在队列中顺序处理到这条变更消息时才能处理。</p>
-<h3 id="结语"><a href="#结语" class="headerlink" title="结语"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#%E7%BB%93%E8%AF%AD" title="结语" target="_blank" rel="noopener"></a>结语</h3><p>以上就是关于Kafka controller的一些讨论，包括了它当前的组件构成、设计问题以及对应的改进方案。有很多地方可能理解的还不是透彻，期待着在Kafka 0.11正式版本中可以看到全新的controller组件</p>
+<h4 id="2-使用Zookeeper的async-API"><a href="#2-使用Zookeeper的async-API" class="headerlink" title="2. 使用Zookeeper的async API"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#2-%E4%BD%BF%E7%94%A8Zookeeper%E7%9A%84async-API" title="2\. 使用Zookeeper的async API"></a>2. 使用Zookeeper的async API</h4><p>　　将所有同步操作Zookeeper的地方都改成异步调用+回调的方式。实际上Apache Zookeeper客户端执行请求的方式有三种：同步、异步和batch。通常以batch性能最好，但Kafka社区目前还是倾向于用async替换sync。毕竟实现起来相对简单同时性能上也能得到不少提升。</p>
+<h4 id="3-重构状态管理"><a href="#3-重构状态管理" class="headerlink" title="3. 重构状态管理"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#3-%E9%87%8D%E6%9E%84%E7%8A%B6%E6%80%81%E7%AE%A1%E7%90%86" title="3\. 重构状态管理"></a>3. 重构状态管理</h4><p>可能摒弃之前状态机的方式，采用和GroupCoordinator类似的方式，让controller保存所有的状态并且负责状态的流转以及状态流转过程中的逻辑。当然，具体的实现还要再结合0.11最终代码才能确定。</p>
+<h4 id="4-对请求排定优先级"><a href="#4-对请求排定优先级" class="headerlink" title="4. 对请求排定优先级"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#4-%E5%AF%B9%E8%AF%B7%E6%B1%82%E6%8E%92%E5%AE%9A%E4%BC%98%E5%85%88%E7%BA%A7" title="4\. 对请求排定优先级"></a>4. 对请求排定优先级</h4><p>　　对管理类请求和数据类请求区分优先级。比如使用优先级队列替换现有的BlockingQueue——社区应该已经实现了这个功能，开发了一个叫PrioritizationAwareBlockingQueue的类来做这件事情，后续大家可以看下这个类的源代码</p>
+<h4 id="5-为controller发送的请求匹配broker版本信息"><a href="#5-为controller发送的请求匹配broker版本信息" class="headerlink" title="5. 为controller发送的请求匹配broker版本信息"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#5-%E4%B8%BAcontroller%E5%8F%91%E9%80%81%E7%9A%84%E8%AF%B7%E6%B1%82%E5%8C%B9%E9%85%8Dbroker%E7%89%88%E6%9C%AC%E4%BF%A1%E6%81%AF" title="5\. 为controller发送的请求匹配broker版本信息"></a>5. 为controller发送的请求匹配broker版本信息</h4><p>为broker设定版本号(generation id)。如果controller发送过来的请求中包含的generation与broker自己的generation不匹配， 那么broker会拒绝该请求。</p>
+<h4 id="6-抛弃ZkClient，使用原生Zookeeper-client"><a href="#6-抛弃ZkClient，使用原生Zookeeper-client" class="headerlink" title="6. 抛弃ZkClient，使用原生Zookeeper client"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#6-%E6%8A%9B%E5%BC%83ZkClient%EF%BC%8C%E4%BD%BF%E7%94%A8%E5%8E%9F%E7%94%9FZookeeper-client" title="6\. 抛弃ZkClient，使用原生Zookeeper client"></a>6. 抛弃ZkClient，使用原生Zookeeper client</h4><p>ZkClient是同步顺序处理ZK事件的，而原生Zookeeper client支持async方式。另外使用原生API还能够在接收到状态变更通知时便马上开始处理，而ZkClient的特定线程则必须要在队列中顺序处理到这条变更消息时才能处理。</p>
+<h3 id="结语"><a href="#结语" class="headerlink" title="结语"></a><a href="https://crazycarry.github.io/2018/01/10/Kafka%20controller%E9%87%8D%E8%AE%BE%E8%AE%A1/#%E7%BB%93%E8%AF%AD" title="结语"></a>结语</h3><p>以上就是关于Kafka controller的一些讨论，包括了它当前的组件构成、设计问题以及对应的改进方案。有很多地方可能理解的还不是透彻，期待着在Kafka 0.11正式版本中可以看到全新的controller组件</p>
 
       
       
