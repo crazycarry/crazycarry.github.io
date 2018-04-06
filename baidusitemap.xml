@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/06/java-gc-performance/</loc>
+    <lastmod>2018-04-05T16:07:33.491Z</lastmod>
+    <data>
+        <display>
+        <title>从实际案例聊聊Java应用的GC优化</title>
+        <pubTime>2018-04-05T16:01:44.000Z</pubTime>
+        
+        <tag>jvm</tag>
+         
+        <tag>java 进阶</tag>
+         
+        <tag>gc 优化</tag>
+         
+         
+           
+             
+              <breadCrumb title="java" url="http://crazycarry.github.io/categories/java/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/05/java-cas/</loc>
+    <lastmod>2018-04-05T15:59:56.446Z</lastmod>
+    <data>
+        <display>
+        <title>深入分析CAS</title>
+        <pubTime>2018-04-05T15:51:55.000Z</pubTime>
+        
+        <tag>jvm</tag>
+         
+        <tag>原理分析</tag>
+         
+        <tag>java 进阶</tag>
+         
+         
+           
+             
+              <breadCrumb title="java" url="http://crazycarry.github.io/categories/java/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/05/java-volatile/</loc>
+    <lastmod>2018-04-05T15:51:07.320Z</lastmod>
+    <data>
+        <display>
+        <title>深入分析volatile</title>
+        <pubTime>2018-04-05T15:37:15.000Z</pubTime>
+        
+        <tag>jvm</tag>
+         
+        <tag>原理分析</tag>
+         
+        <tag>java 进阶</tag>
+         
+         
+           
+             
+              <breadCrumb title="java" url="http://crazycarry.github.io/categories/java/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/05/java-synchronized/</loc>
+    <lastmod>2018-04-05T15:36:23.407Z</lastmod>
+    <data>
+        <display>
+        <title>深入分析synchronized</title>
+        <pubTime>2018-04-05T15:28:06.000Z</pubTime>
+        
+        <tag>jvm</tag>
+         
+        <tag>原理分析</tag>
+         
+        <tag>java 进阶</tag>
+         
+        <tag>架构设计</tag>
+         
+         
+           
+             
+              <breadCrumb title="java" url="http://crazycarry.github.io/categories/java/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/kafka-eos/</loc>
+    <lastmod>2018-04-04T13:58:21.461Z</lastmod>
+    <data>
+        <display>
+        <title>Kafka设计解析（八）- Kafka Exactly Once语义与事务机制原理</title>
+        <pubTime>2018-04-04T13:46:54.000Z</pubTime>
+        
+        <tag>架构设计</tag>
+         
+        <tag>源码分析</tag>
+         
+        <tag>消息中间件</tag>
+         
+        <tag>大数据</tag>
+         
+         
+           
+             
+              <breadCrumb title="kafka" url="http://crazycarry.github.io/categories/kafka/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/kafka-consume-detail/</loc>
+    <lastmod>2018-04-04T11:30:45.884Z</lastmod>
+    <data>
+        <display>
+        <title>Kafka消费者重新实现的细节</title>
+        <pubTime>2018-04-04T11:20:41.000Z</pubTime>
+        
+        <tag>架构设计</tag>
+         
+        <tag>源码分析</tag>
+         
+        <tag>消息中间件</tag>
+         
+        <tag>大数据</tag>
+         
+         
+           
+             
+              <breadCrumb title="kafka" url="http://crazycarry.github.io/categories/kafka/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/kafka-performance-why/</loc>
+    <lastmod>2018-04-04T10:46:32.699Z</lastmod>
+    <data>
+        <display>
+        <title>Kafka设计解析（六）- Kafka高性能架构之道</title>
+        <pubTime>2018-04-04T10:34:10.000Z</pubTime>
+        
+        <tag>架构设计</tag>
+         
+        <tag>源码分析</tag>
+         
+        <tag>消息中间件</tag>
+         
+        <tag>大数据</tag>
+         
+         
+           
+             
+              <breadCrumb title="kafka" url="http://crazycarry.github.io/categories/kafka/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/kafka-controller-source/</loc>
+    <lastmod>2018-04-04T10:23:54.011Z</lastmod>
+    <data>
+        <display>
+        <title>Kafka controller架构分析</title>
+        <pubTime>2018-04-04T09:42:52.000Z</pubTime>
+        
+        <tag>架构设计</tag>
+         
+        <tag>源码分析</tag>
+         
+        <tag>消息中间件</tag>
+         
+        <tag>大数据</tag>
+         
+         
+           
+             
+              <breadCrumb title="kafka" url="http://crazycarry.github.io/categories/kafka/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/kafka-controller-01/</loc>
+    <lastmod>2018-04-04T08:57:41.930Z</lastmod>
+    <data>
+        <display>
+        <title>Kafka controller 设计分析</title>
+        <pubTime>2018-04-04T08:30:34.000Z</pubTime>
+        
+        <tag>架构设计</tag>
+         
+        <tag>源码分析</tag>
+         
+        <tag>消息中间件</tag>
+         
+        <tag>大数据</tag>
+         
+         
+           
+             
+              <breadCrumb title="kafka" url="http://crazycarry.github.io/categories/kafka/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/spark-memory-manager-02/</loc>
+    <lastmod>2018-04-04T08:26:00.674Z</lastmod>
+    <data>
+        <display>
+        <title>Spark 内存管理之UnifiedMemoryManager</title>
+        <pubTime>2018-04-04T08:19:35.000Z</pubTime>
+        
+        <tag>源码分析</tag>
+         
+        <tag>大数据</tag>
+         
+        <tag>性能优化</tag>
+         
+        <tag>内存管理</tag>
+         
+         
+           
+             
+              <breadCrumb title="spark" url="http://crazycarry.github.io/categories/spark/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/spark-network-rpc/</loc>
+    <lastmod>2018-04-04T08:17:23.091Z</lastmod>
+    <data>
+        <display>
+        <title>Spark RPC通信层设计原理分析</title>
+        <pubTime>2018-04-04T08:08:40.000Z</pubTime>
+        
+        <tag>源码分析</tag>
+         
+        <tag>大数据</tag>
+         
+        <tag>rpc</tag>
+         
+         
+           
+             
+              <breadCrumb title="spark" url="http://crazycarry.github.io/categories/spark/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/spark-blockmanager/</loc>
+    <lastmod>2018-04-04T08:07:23.043Z</lastmod>
+    <data>
+        <display>
+        <title>Spark BlockManager分析</title>
+        <pubTime>2018-04-04T07:59:48.000Z</pubTime>
+        
+        <tag>源码分析</tag>
+         
+        <tag>大数据</tag>
+         
+        <tag>性能优化</tag>
+         
+        <tag>内存管理</tag>
+         
+         
+           
+             
+              <breadCrumb title="spark" url="http://crazycarry.github.io/categories/spark/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/spark-memory-manager/</loc>
+    <lastmod>2018-04-04T07:57:49.687Z</lastmod>
+    <data>
+        <display>
+        <title>Spark内存管理</title>
+        <pubTime>2018-04-04T07:27:58.000Z</pubTime>
+        
+        <tag>源码分析</tag>
+         
+        <tag>大数据</tag>
+         
+        <tag>性能优化</tag>
+         
+        <tag>内存管理</tag>
+         
+         
+           
+             
+              <breadCrumb title="spark" url="http://crazycarry.github.io/categories/spark/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/spark-performance-02/</loc>
+    <lastmod>2018-04-04T06:52:43.469Z</lastmod>
+    <data>
+        <display>
+        <title>Spark性能优化指南——高级篇</title>
+        <pubTime>2018-04-04T06:28:52.000Z</pubTime>
+        
+        <tag>大数据</tag>
+         
+        <tag>性能优化</tag>
+         
+        <tag>spark</tag>
+         
+         
+           
+             
+              <breadCrumb title="spark" url="http://crazycarry.github.io/categories/spark/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
+    <loc>http://crazycarry.github.io/2018/04/04/spark-performance-01/</loc>
+    <lastmod>2018-04-04T06:20:44.679Z</lastmod>
+    <data>
+        <display>
+        <title>Spark性能优化指南——基础篇</title>
+        <pubTime>2018-04-04T05:56:57.000Z</pubTime>
+        
+        <tag>大数据</tag>
+         
+        <tag>性能优化</tag>
+         
+        <tag>spark</tag>
+         
+         
+           
+             
+              <breadCrumb title="spark" url="http://crazycarry.github.io/categories/spark/"/>
+          
+        </display>
+    </data>
+    </url>
+
+</urlset>

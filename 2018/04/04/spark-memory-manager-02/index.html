@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="baidu-site-verification" content="L6Lm9d5Crl"/>
+  
+  
+  
+  
+  <title>Spark 内存管理之UnifiedMemoryManager | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Spark的内存使用，大体上可以分为两类：Execution内存和Storage内存。在Spark 1.5版本之前，内存管理使用的是StaticMemoryManager，该内存管理模型最大的特点就是，可以为Execution内存区与Storage内存区配置一个静态的boundary，这种方式实现起来比较简单，但是存在一些问题：  没有一个合理的默认值能够适应不同计算场景下的Workload 内存">
+<meta name="keywords" content="源码分析,大数据,性能优化,内存管理">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark 内存管理之UnifiedMemoryManager">
+<meta property="og:url" content="http://crazycarry.github.io/2018/04/04/spark-memory-manager-02/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="Spark的内存使用，大体上可以分为两类：Execution内存和Storage内存。在Spark 1.5版本之前，内存管理使用的是StaticMemoryManager，该内存管理模型最大的特点就是，可以为Execution内存区与Storage内存区配置一个静态的boundary，这种方式实现起来比较简单，但是存在一些问题：  没有一个合理的默认值能够适应不同计算场景下的Workload 内存">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://www.uml.org.cn/bigdata/images/2017072831.png">
+<meta property="og:image" content="http://www.uml.org.cn/bigdata/images/2017072832.png">
+<meta property="og:image" content="http://www.uml.org.cn/bigdata/images/2017072833.png">
+<meta property="og:updated_time" content="2018-04-04T08:26:00.674Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark 内存管理之UnifiedMemoryManager">
+<meta name="twitter:description" content="Spark的内存使用，大体上可以分为两类：Execution内存和Storage内存。在Spark 1.5版本之前，内存管理使用的是StaticMemoryManager，该内存管理模型最大的特点就是，可以为Execution内存区与Storage内存区配置一个静态的boundary，这种方式实现起来比较简单，但是存在一些问题：  没有一个合理的默认值能够适应不同计算场景下的Workload 内存">
+<meta name="twitter:image" content="http://www.uml.org.cn/bigdata/images/2017072831.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/img/favicon.png">
+  
+  
+  <link rel="stylesheet" href="//cdn.bootcss.com/animate.css/3.5.0/animate.min.css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/font-awesome/css/font-awesome.min.css">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  
+  
+      <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  
+  <!-- 加载特效 -->
+    <script src="/js/pace.js"></script>
+    <link href="/css/pace/pace-theme-flash.css" rel="stylesheet" />
+  <script>
+      var yiliaConfig = {
+          fancybox: true,
+          animate: true,
+          isHome: false,
+          isPost: true,
+          isArchive: false,
+          isTag: false,
+          isCategory: false,
+          open_in_new: false
+      }
+  </script>
+</head>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+    <header id="header" class="inner">
+        <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+        <a href="/" class="profilepic">
+            
+            <img lazy-src="/img/avatar.png" class="js-avatar">
+            
+        </a>
+        <hgroup>
+          <h1 class="header-author"><a href="/">Crazy Carry</a></h1>
+        </hgroup>
+        
+        
+            <form>
+                <input type="text" class="st-default-search-input search" id="local-search-input" placeholder="搜索一下" autocomplete="off">
+            </form>
+            <div id="local-search-result"></div>
+        
+        
+            <script type="text/javascript">
+                (function() {
+                    'use strict';
+                    function getMatchData(keyword, data) {
+                        var matchData = [];
+                        for(var i =0;i<data.length;i++){
+                            if(data[i].title.toLowerCase().indexOf(keyword)>=0) 
+                                matchData.push(data[i])
+                        }
+                        return matchData;
+                    }
+                    var $input = $('#local-search-input');
+                    var $resultContent = $('#local-search-result');
+                    $input.keyup(function(){
+                        $.ajax({
+                            url: '/search.json',
+                            dataType: "json",
+                            success: function( json ) {
+                                var str='<ul class=\"search-result-list\">';                
+                                var keyword = $input.val().trim().toLowerCase();
+                                $resultContent.innerHTML = "";
+                                if ($input.val().trim().length <= 0) {
+                                    $resultContent.empty();
+                                    $('#switch-area').show();
+                                    return;
+                                }
+                                var results = getMatchData(keyword, json);
+                                if(results.length === 0){
+                                    $resultContent.empty();
+                                    $('#switch-area').show();
+                                    return;
+                                } 
+                                for(var i =0; i<results.length; i++){
+                                    str += "<li><a href='"+ results[i].url +"' class='search-result-title'>"+ results[i].title +"</a></li>";
+                                }
+                                str += "</ul>";
+                                $resultContent.empty();
+                                $resultContent.append(str);
+                                $('#switch-area').hide();
+                            }
+                        });
+                    });
+                })();
+            </script>
+        
+        
+            <div id="switch-btn" class="switch-btn">
+                <div class="icon">
+                    <div class="icon-ctn">
+                        <div class="icon-wrap icon-house" data-idx="0">
+                            <div class="birdhouse"></div>
+                            <div class="birdhouse_holes"></div>
+                        </div>
+                        <div class="icon-wrap icon-ribbon hide" data-idx="1">
+                            <div class="ribbon"></div>
+                        </div>
+                        
+                        <div class="icon-wrap icon-link hide" data-idx="2">
+                            <div class="loopback_l"></div>
+                            <div class="loopback_r"></div>
+                        </div>
+                        
+                        
+                        <div class="icon-wrap icon-me hide" data-idx="3">
+                            <div class="user"></div>
+                            <div class="shoulder"></div>
+                        </div>
+                        
+                    </div>
+                </div>
+                <div class="tips-box hide">
+                    <div class="tips-arrow"></div>
+                    <ul class="tips-inner">
+                        <li>菜单</li>
+                        <li>标签</li>
+                        
+                        <li>友情链接</li>
+                        
+                        
+                        <li>关于我</li>
+                        
+                    </ul>
+                </div>
+            </div>
+        
+        <div id="switch-area" class="switch-area">
+            <div class="switch-wrap">
+                <section class="switch-part switch-part1">
+                    <nav class="header-menu">
+                        <ul>
+                        
+                            <li><a  href="/archives/">所有文章</a></li>
+                        
+                            <li><a  href="/categories/开发工具/">玩转开发工具</a></li>
+                        
+                            <li><a  href="/categories/spark">Spark</a></li>
+                        
+                            <li><a  href="/categories/kafka">Kafka</a></li>
+                        
+                            <li><a  href="/about/">关于我</a></li>
+                        
+                        </ul>
+                    </nav>
+                    <nav class="header-nav">
+                        <ul class="social">
+                            
+                                <a class="fl github"  target="_blank" href="/xxxxx" title="github">github</a>
+                            
+                                <a class="fl weibo"  target="_blank" href="/xxxxxxxx" title="weibo">weibo</a>
+                            
+                                <a class="fl rss"  target="_blank" href="/atom.xml" title="rss">rss</a>
+                            
+                        </ul>
+                    </nav>
+                </section>
+                
+                <section class="switch-part switch-part2">
+                    <div class="widget tagcloud" id="js-tagcloud">
+                        <a href="/tags/gc-优化/" style="font-size: 10px;">gc 优化</a> <a href="/tags/java-进阶/" style="font-size: 14.29px;">java 进阶</a> <a href="/tags/jvm/" style="font-size: 14.29px;">jvm</a> <a href="/tags/rpc/" style="font-size: 10px;">rpc</a> <a href="/tags/spark/" style="font-size: 11.43px;">spark</a> <a href="/tags/内存管理/" style="font-size: 12.86px;">内存管理</a> <a href="/tags/原理分析/" style="font-size: 12.86px;">原理分析</a> <a href="/tags/大数据/" style="font-size: 20px;">大数据</a> <a href="/tags/性能优化/" style="font-size: 15.71px;">性能优化</a> <a href="/tags/架构设计/" style="font-size: 17.14px;">架构设计</a> <a href="/tags/消息中间件/" style="font-size: 15.71px;">消息中间件</a> <a href="/tags/源码分析/" style="font-size: 18.57px;">源码分析</a>
+                    </div>
+                </section>
+                
+                
+                <section class="switch-part switch-part3">
+                    <div id="js-friends">
+                    
+                      <a target="_blank"  class="main-nav-link switch-friends-link" href="http://blog.csdn.net/baidu_21483933">csdn</a>
+                    
+                      <a target="_blank"  class="main-nav-link switch-friends-link" href="https://segmentfault.com/blog/maocg_web">segmentfault</a>
+                    
+                      <a target="_blank"  class="main-nav-link switch-friends-link" href="http://www.jianshu.com/users/eb37ef89c746/latest_articles">简书</a>
+                    
+                    </div>
+                </section>
+                
+                
+                
+                <section class="switch-part switch-part4">
+                
+                    <div id="js-aboutme">爱动漫,爱游戏,爱编程,爱运动,爱的太多了!</div>
+                </section>
+                
+            </div>
+        </div>
+    </header>
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+      <div class="overlay">
+          <div class="slider-trigger"></div>
+          <h1 class="header-author js-mobile-header hide"><a href="/" title="回到主页">Crazy Carry</a></h1>
+      </div>
+    <div class="intrude-less">
+        <header id="header" class="inner">
+            <a href="/" class="profilepic">
+                
+                    <img lazy-src="/img/avatar.png" class="js-avatar">
+                
+            </a>
+            <hgroup>
+              <h1 class="header-author"><a href="/" title="回到主页">Crazy Carry</a></h1>
+            </hgroup>
+            
+            <nav class="header-menu">
+                <ul>
+                
+                    <li><a href="/archives/">所有文章</a></li>
+                
+                    <li><a href="/categories/开发工具/">玩转开发工具</a></li>
+                
+                    <li><a href="/categories/spark">Spark</a></li>
+                
+                    <li><a href="/categories/kafka">Kafka</a></li>
+                
+                    <li><a href="/about/">关于我</a></li>
+                
+                <div class="clearfix"></div>
+                </ul>
+            </nav>
+            <nav class="header-nav">
+                <div class="social">
+                    
+                        <a class="github" target="_blank" href="/xxxxx" title="github">github</a>
+                    
+                        <a class="weibo" target="_blank" href="/xxxxxxxx" title="weibo">weibo</a>
+                    
+                        <a class="rss" target="_blank" href="/atom.xml" title="rss">rss</a>
+                    
+                </div>
+            </nav>
+        </header>                
+    </div>
+</nav>
+      <div class="body-wrap"><article id="post-spark-memory-manager-02" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a  href="/2018/04/04/spark-memory-manager-02/" class="article-date">
+      <time datetime="2018-04-04T08:19:35.000Z" itemprop="datePublished">2018-04-04</time>
+</a>
+
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy" />
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Spark 内存管理之UnifiedMemoryManager
+    </h1>
+  
+
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+    <div class="article-category tagcloud">
+    <a class="article-category-link" href="/categories/spark/">spark</a>
+    </div>
+
+
+        
+    <div class="article-tag tagcloud">
+        <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内存管理/">内存管理</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/大数据/">大数据</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/性能优化/">性能优化</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/源码分析/">源码分析</a></li></ul>
+    </div>
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+          
+        <p>Spark的内存使用，大体上可以分为两类：Execution内存和Storage内存。在Spark 1.5版本之前，内存管理使用的是StaticMemoryManager，该内存管理模型最大的特点就是，可以为Execution内存区与Storage内存区配置一个静态的boundary，这种方式实现起来比较简单，但是存在一些问题：</p>
+<ol>
+<li>没有一个合理的默认值能够适应不同计算场景下的Workload</li>
+<li>内存调优困难，需要对Spark内部原理非常熟悉才能做好</li>
+<li>对不需要Cache的Application的计算场景，只能使用很少一部分内存<a id="more"></a>
+</li>
+</ol>
+<p>为了克服上述提到的问题，尽量提高Spark计算的通用性，降低内存调优难度，减少OOM导致的失败问题，从Spark 1.6版本开始，新增了UnifiedMemoryManager（统一内存管理）内存管理模型的实现。UnifiedMemoryManager依赖的一些组件类及其关系，如下类图所示：</p>
+<p><a href="http://www.uml.org.cn/bigdata/images/2017072831.png" target="_blank" rel="noopener"><img src="http://www.uml.org.cn/bigdata/images/2017072831.png" alt=""></a></p>
+<p>从上图可以看出，最直接最核心的就是StorageMemoryPool 和ExecutionMemoryPool，它们实现了动态内存池（Memory Pool）的功能，能够动态调整Storage内存区与Execution内存区之间的Soft boundary，使内存管理更加灵活。下面我们从内存布局和内存控制两个方面，来分析UnifiedMemoryManager内存管理模型。</p>
+<h2 id="内存布局"><a href="#内存布局" class="headerlink" title="内存布局"></a>内存布局</h2><p>UnifiedMemoryManager是MemoryManager的一种实现，是基于StaticMemoryManager的改进。这种模型也是将某个执行Task的Executor JVM内存划分为两类内存区域：</p>
+<ul>
+<li><p>Storage内存区<br>  Storage内存，用来缓存Task数据、在Spark集群中传输（Propagation）内部数据。</p>
+</li>
+<li><p>Execution内存区<br>  Execution内存，用于满足Shuffle、Join、Sort、Aggregation计算过程中对内存的需求。</p>
+</li>
+</ul>
+<p>这种新的内存管理模型，在Storage内存区与Execution内存区之间抽象出一个Soft boundary，能够满足当某一个内存区中内存用量不足的时候，可以从另一个内存区中借用。我们可以理解为，上面Storage内存和Execution堆内存是受Spark管理的，而且每一个内存区是可以动态伸缩的。这样的好处是，当某一个内存区内存使用量达到初始分配值，如果不能够动态伸缩，不能在两类内存区之间进行动态调整（Borrow），或者如果某个Task计算的数据量很大超过限制，就会出现OOM异常导致Task执行失败。应该说，在一定程度上，UnifiedMemoryManager内存管理模型降低了发生OOM的概率。</p>
+<p>我们知道，在Spark Application提交以后，最终会在Worker上启动独立的Executor JVM，Task就运行在Executor里面。在一个Executor JVM内部，基于UnifiedMemoryManager这种内存管理模型，堆内存的布局如下图所示：</p>
+<p><a href="http://www.uml.org.cn/bigdata/images/2017072832.png" target="_blank" rel="noopener"><img src="http://www.uml.org.cn/bigdata/images/2017072832.png" alt=""></a></p>
+<p>上图中，systemMemory是Executor JVM的全部堆内存，在全部堆内存基础上reservedMemory是预留内存，默认300M，则用于Spark计算使用堆内存大小默认是：</p>
+<p>| maxHeapMemory = (systemMemory - reservedMemory) * 0.6 |</p>
+<p>受Spark管理的堆内存，使用去除预留内存后的、剩余内存的百分比，可以通过参数spark.memory.fraction来配置，默认值是0.6。Executor JVM堆内存，去除预留的reservedMemory内存，默认剩下堆内存的60%用于execution和storage这两类堆内存，默认情况下，Execution和Storage内存区各占50%，这个也可以通过参数spark.memory.storageFraction来配置，默认值是0.5。比如，在所有参数使用默认值的情况下，我们的Executor JVM内存为指定为2G，那么Unified Memory大小为(1024 <em>2 – 300) </em>0.6 = 1048MB，其中，Execution和Storage内存区大小分别为1048 * 0.5 = 524MB。</p>
+<p>另外，还有一个用来保证Spark Application能够计算的最小Executor JVM内存大小限制，即为minSystemMemory = reservedMemory <em>1.5 = 300 </em>1.5 = 450MB，我们假设Executor JVM配置了这个默认最小限制值450MB，则受Spark管理的堆内存大小为(450 – 300) <em>0.6 = 90MB，其中Execution和Storage内存大小分别为90 </em>0.5 = 45MB，这种情况对一些小内存用量的Spark计算也能够很好的支持。</p>
+<p>上面，我们详细说明了受Spark管理的堆内存（OnHeap Memory）的布局，UnifiedMemoryManager也能够对非堆内存（OffHeap Memory）进行管理。Spark堆内存和非堆内存的布局，如下图所示：</p>
+<p><a href="http://www.uml.org.cn/bigdata/images/2017072833.png" target="_blank" rel="noopener"><img src="http://www.uml.org.cn/bigdata/images/2017072833.png" alt=""></a></p>
+<p>通过上图可以看到，非堆内存（OffHeap Memory）默认大小配置值为0，表示不使用非堆内存，可以通过参数spark.memory.offHeap.size来设置非堆内存的大小。无论是对堆内存，还是对非堆内存，都分为Execution内存和Storage内存两部分，他们的分配大小比例通过参数spark.memory.storageFraction来控制，默认是0.5。</p>
+<h2 id="内存控制"><a href="#内存控制" class="headerlink" title="内存控制"></a>内存控制</h2><p>通过上面，我们了解了UnifiedMemoryManager这种内存管理模型的内存布局状况。接下来，我们看一下，通过UnifiedMemoryManager的API，如何对内存进行控制（分配/回收）。内存的控制，也对应于Execution内存与Storage内存，分别有一个StorageMemoryPool 和ExecutionMemoryPool，在实现类UnifiedMemoryManager中可以看到通过这两个MemoryPool实现来控制内存大小的伸缩（Increment/Decrement）。</p>
+<p>获取当前堆上的最大可用Storage内存，如下maxOnHeapStorageMemory方法所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">maxOnHeapStorageMemory</span></span>: <span class="type">Long</span> = synchronized &#123; maxHeapMemory - onHeapExecutionMemoryPool.memoryUsed</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，maxHeapMemory表示堆上可用的Execution内存与Storage内存总量之和，减去Execution内存中已经被占用的内存，剩余的都是堆上的最大可用Storage内存。</p>
+<p>在UnifiedMemoryManager中，两类最核心的操作，就是申请/释放Storage内存、申请/释放Execution内存，分别说明如下：</p>
+<h3 id="申请Storage内存"><a href="#申请Storage内存" class="headerlink" title="申请Storage内存"></a>申请Storage内存</h3><p>申请Storage内存的逻辑，实现代码如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">acquireStorageMemory</span></span>( blockId: <span class="type">BlockId</span>,</span><br><span class="line">numBytes: <span class="type">Long</span>,</span><br><span class="line">memoryMode: <span class="type">MemoryMode</span>): <span class="type">Boolean</span> = synchronized &#123; <span class="comment">// 为blockId申请numBytes字节大小的内存</span></span><br><span class="line">assertInvariants()</span><br><span class="line">assert(numBytes &gt;= <span class="number">0</span>)</span><br><span class="line"><span class="keyword">val</span> (executionPool, storagePool, maxMemory) = memoryMode <span class="keyword">match</span> &#123; <span class="comment">// 根据memoryMode值，返回对应的StorageMemoryPool与ExecutionMemoryPool</span></span><br><span class="line"><span class="keyword">case</span> <span class="type">MemoryMode</span>.<span class="type">ON_HEAP</span> =&gt; (</span><br><span class="line">onHeapExecutionMemoryPool,</span><br><span class="line">onHeapStorageMemoryPool,</span><br><span class="line">maxOnHeapStorageMemory)</span><br><span class="line"><span class="keyword">case</span> <span class="type">MemoryMode</span>.<span class="type">OFF_HEAP</span> =&gt; (</span><br><span class="line">offHeapExecutionMemoryPool,</span><br><span class="line">offHeapStorageMemoryPool,</span><br><span class="line">maxOffHeapMemory)</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> (numBytes &gt; maxMemory) &#123; <span class="comment">// 如果申请的内存大于最大的Storage内存量（对应上面方法maxOnHeapStorageMemory()返回的内存大小），申请失败</span></span><br><span class="line"><span class="comment">// Fail fast if the block simply won't fit</span></span><br><span class="line">logInfo(<span class="string">s"Will not store <span class="subst">$blockId</span> as the required space (<span class="subst">$numBytes</span> bytes) exceeds our "</span> +</span><br><span class="line"><span class="string">s"memory limit (<span class="subst">$maxMemory</span> bytes)"</span>)</span><br><span class="line"><span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> (numBytes &gt; storagePool.memoryFree) &#123; <span class="comment">// 如果Storage内存块中没有足够可用内存给blockId使用，则计算当前Storage内存区缺少多少内存，然后从Execution内存区中借用</span></span><br><span class="line"><span class="comment">// There is not enough free memory in the storage pool, so try to borrow free memory from</span></span><br><span class="line"><span class="comment">// the execution pool.</span></span><br><span class="line"><span class="keyword">val</span> memoryBorrowedFromExecution = <span class="type">Math</span>.min(executionPool.memoryFree, numBytes)</span><br><span class="line">executionPool.decrementPoolSize(memoryBorrowedFromExecution) <span class="comment">// Execution内存区减掉借用内存量</span></span><br><span class="line">storagePool.incrementPoolSize(memoryBorrowedFromExecution) <span class="comment">// Storage内存区增加借用内存量</span></span><br><span class="line">&#125;</span><br><span class="line">storagePool.acquireMemory(blockId, numBytes) <span class="comment">// 如果Storage内存区可以为blockId分配内存，直接成功分配；否则，如果从Execution内存区中借用的内存能够满足blockId，则分配成功，不能满足则分配失败。</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果Storage内存区可用内存满足申请大小，则直接成功分配内存；如果Storage内存区可用内存大于0且小于申请的内存大小，则需要从Execution内存区借用满足分配大小的内存，如果借用成功，则直接成功分配内存，否则分配失败；如果申请的内存超过了Storage内存区的最大内存量，则分配失败。</p>
+<p>另外，UnifiedMemoryManager.acquireUnrollMemory()方法提供了对Unroll内存的申请，Unroll内存就是Storage内存：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">acquireUnrollMemory</span></span>( blockId: <span class="type">BlockId</span>,</span><br><span class="line">numBytes: <span class="type">Long</span>,</span><br><span class="line">memoryMode: <span class="type">MemoryMode</span>): <span class="type">Boolean</span> = synchronized &#123;</span><br><span class="line">acquireStorageMemory(blockId, numBytes, memoryMode)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Unroll内存 ，被用来在Storage内存中Unroll（展开）指定的Block数据。</p>
+<h3 id="释放Storage内存"><a href="#释放Storage内存" class="headerlink" title="释放Storage内存"></a>释放Storage内存</h3><p>释放Storage内存比较简单，只需要更新Storage内存计量变量即可，如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">releaseMemory</span></span>(size: <span class="type">Long</span>): <span class="type">Unit</span> = lock.synchronized &#123; <span class="keyword">if</span> (size &gt; _memoryUsed) &#123;</span><br><span class="line">logWarning(<span class="string">s"Attempted to release <span class="subst">$size</span> bytes of storage "</span> +</span><br><span class="line"><span class="string">s"memory when we only have <span class="subst">$&#123;_memoryUsed&#125;</span> bytes"</span>)</span><br><span class="line">_memoryUsed = <span class="number">0</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">_memoryUsed -= size</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="申请Execution内存"><a href="#申请Execution内存" class="headerlink" title="申请Execution内存"></a>申请Execution内存</h3><p>申请Execution内存，相对复杂一些，调用acquireExecutionMemory()方法可能会阻塞，直到Execution内存区有可用内存为止。UnifiedMemoryManager的acquireExecutionMemory()方法实现如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">override</span> <span class="keyword">private</span>[memory] <span class="function"><span class="keyword">def</span> <span class="title">acquireExecutionMemory</span></span>( numBytes: <span class="type">Long</span>,</span><br><span class="line">taskAttemptId: <span class="type">Long</span>,</span><br><span class="line">memoryMode: <span class="type">MemoryMode</span>): <span class="type">Long</span> = synchronized &#123;</span><br><span class="line">... ...</span><br><span class="line">executionPool.acquireMemory(</span><br><span class="line">numBytes, taskAttemptId, maybeGrowExecutionPool, computeMaxExecutionPoolSize)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面代码，调用了ExecutionMemoryPool的acquireMemory()方法，该方法的参数需要2个函数（maybeGrowExecutionPool函数用来控制如何增加Execution内存区对应Pool的大小，computeMaxExecutionPoolSize函数用来获取当前Execution内存区对应Pool的大小）。ExecutionMemoryPool的acquireMemory()方法签名，如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span>[memory] <span class="function"><span class="keyword">def</span> <span class="title">acquireMemory</span></span>( numBytes: <span class="type">Long</span>,</span><br><span class="line">taskAttemptId: <span class="type">Long</span>,</span><br><span class="line">maybeGrowPool: <span class="type">Long</span> =&gt; <span class="type">Unit</span> = (additionalSpaceNeeded: <span class="type">Long</span>) =&gt; <span class="type">Unit</span>,</span><br><span class="line">computeMaxPoolSize: () =&gt; <span class="type">Long</span> = () =&gt; poolSize): <span class="type">Long</span> = lock.synchronized &#123;</span><br></pre></td></tr></table></figure>
+<p>在UnifiedMemoryManager内部，实现了如何动态增加Execution内存区对应Pool大小的函数，即为maybeGrowExecutionPool函数，代码如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">maybeGrowExecutionPool</span></span>(extraMemoryNeeded: <span class="type">Long</span>): <span class="type">Unit</span> = &#123; <span class="keyword">if</span> (extraMemoryNeeded &gt; <span class="number">0</span>) &#123;</span><br><span class="line"><span class="comment">// There is not enough free memory in the execution pool, so try to reclaim memory from</span></span><br><span class="line"><span class="comment">// storage. We can reclaim any free memory from the storage pool. If the storage pool</span></span><br><span class="line"><span class="comment">// has grown to become larger than `storageRegionSize`, we can evict blocks and reclaim</span></span><br><span class="line"><span class="comment">// the memory that storage has borrowed from execution.</span></span><br><span class="line"><span class="keyword">val</span> memoryReclaimableFromStorage = math.max( storagePool.memoryFree, storagePool.poolSize - storageRegionSize) </span><br><span class="line"><span class="keyword">if</span> (memoryReclaimableFromStorage &gt; <span class="number">0</span>) &#123; <span class="comment">// 这里memoryReclaimableFromStorage大于0，说明当前Storage内存区有可用内存，可以Shrink该Pool的内存，作为Execution内存区的可用内存使用</span></span><br><span class="line"><span class="comment">// Only reclaim as much space as is necessary and available:</span></span><br><span class="line"><span class="keyword">val</span> spaceToReclaim = storagePool.freeSpaceToShrinkPool( math.min(extraMemoryNeeded, memoryReclaimableFromStorage)) <span class="comment">// 对Storage内存区进行Shrink操作，如果可用内存大于请求内存extraMemoryNeeded，则直接将Storage内存区内存Shrink大小为extraMemoryNeeded，否则Shrink大小为Storage内存区的全部可用内存大小</span></span><br><span class="line">storagePool.decrementPoolSize(spaceToReclaim) <span class="comment">// Storage内存区减掉借用内存量</span></span><br><span class="line">executionPool.incrementPoolSize(spaceToReclaim) <span class="comment">// Execution内存区增加借用内存量</span></span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>需要说明的是，上面的storagePool.poolSize的大小可能大于Storage内存区初始最大内存大小，主要是通过借用Execution内存区的内存导致的。这里，storagePool.freeSpaceToShrinkPool()方法会Shrink掉Storage内存区可用内存，我们可以看下StorageMemoryPool中如何Shrink Storage内存，方法如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">freeSpaceToShrinkPool</span></span>(spaceToFree: <span class="type">Long</span>): <span class="type">Long</span> = lock.synchronized &#123; <span class="keyword">val</span> spaceFreedByReleasingUnusedMemory = math.min(spaceToFree, memoryFree)</span><br><span class="line"><span class="keyword">val</span> remainingSpaceToFree = spaceToFree - spaceFreedByReleasingUnusedMemory <span class="comment">// Storage内存区需要释放remainingSpaceToFree大小的内存</span></span><br><span class="line"><span class="keyword">if</span> (remainingSpaceToFree &gt; <span class="number">0</span>) &#123; <span class="comment">// 大于0表示当前Storage内存区已经无可用内存，需要通过清理Storage内存区的block来实现Shrink操作</span></span><br><span class="line"><span class="comment">// If reclaiming free memory did not adequately shrink the pool, begin evicting blocks:</span></span><br><span class="line"><span class="keyword">val</span> spaceFreedByEviction = memoryStore.evictBlocksToFreeSpace(<span class="type">None</span>, remainingSpaceToFree, memoryMode) <span class="comment">// 通过清理Storage内存区的block释放的内存大小</span></span><br><span class="line"><span class="comment">// When a block is released, BlockManager.dropFromMemory() calls releaseMemory(), so we do</span></span><br><span class="line"><span class="comment">// not need to decrement _memoryUsed here. However, we do need to decrement the pool size.</span></span><br><span class="line">spaceFreedByReleasingUnusedMemory + spaceFreedByEviction</span><br><span class="line">&#125; <span class="keyword">else</span> &#123; <span class="comment">// remainingSpaceToFree Unit = (additionalSpaceNeeded: Long) =&gt; Unit,</span></span><br><span class="line">computeMaxPoolSize: () =&gt; <span class="type">Long</span> = () =&gt; poolSize): <span class="type">Long</span> = lock.synchronized &#123;</span><br><span class="line">assert(numBytes &gt; <span class="number">0</span>, <span class="string">s"invalid number of bytes requested: <span class="subst">$numBytes</span>"</span>)</span><br><span class="line"><span class="keyword">if</span> (!memoryForTask.contains(taskAttemptId)) &#123; <span class="comment">// ExecutionMemoryPool内部维护了一个HashMap</span></span><br><span class="line">memoryForTask(taskAttemptId) = <span class="number">0</span>L</span><br><span class="line"><span class="comment">// This will later cause waiting tasks to wake up and check numTasks again</span></span><br><span class="line">lock.notifyAll()</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line"><span class="keyword">val</span> numActiveTasks = memoryForTask.keys.size <span class="comment">// 当前活跃的Task数量</span></span><br><span class="line"><span class="keyword">val</span> curMem = memoryForTask(taskAttemptId) <span class="comment">// 当前Task使用的内存量</span></span><br><span class="line">maybeGrowPool(numBytes - memoryFree) <span class="comment">// 如果需要，通过Shrink Storage内存区对应的Pool内存来增加Execution内存区内存大小</span></span><br><span class="line"><span class="keyword">val</span> maxPoolSize = computeMaxPoolSize() <span class="comment">// 计算当前Execution内存区对应Pool的大小</span></span><br><span class="line"><span class="keyword">val</span> maxMemoryPerTask = maxPoolSize / numActiveTasks <span class="comment">// 计算1/N：将当前Execution内存区对应Pool的大小，平均分配给所有活跃的Task，得到每个Task能够获取到的最大内存大小</span></span><br><span class="line"><span class="keyword">val</span> minMemoryPerTask = poolSize / (<span class="number">2</span> * numActiveTasks) <span class="comment">// 计算1/2N：每个Task能够获取到的最小内存大小</span></span><br><span class="line"><span class="keyword">val</span> maxToGrant = math.min(numBytes, math.max(<span class="number">0</span>, maxMemoryPerTask - curMem)) <span class="comment">// 允许当前Task获取到最大内存（范围：0 </span></span><br><span class="line"><span class="keyword">val</span> toGrant = math.min(maxToGrant, memoryFree) <span class="comment">// 计算能分配给当前Task的内存大小</span></span><br><span class="line"><span class="comment">// 如果当前Task无法获取到1 / (2 * numActiveTasks)的内存，并且能分配给当前Task的内存大小无法满足申请的内存量，则阻塞等待其他Task释放内存后在lock上通知</span></span><br><span class="line"><span class="keyword">if</span> (toGrant </span><br><span class="line">logInfo(<span class="string">s"TID <span class="subst">$taskAttemptId</span> waiting for at least 1/2N of <span class="subst">$poolName</span> pool to be free"</span>)</span><br><span class="line">lock.wait() <span class="comment">// 在ExecutionMemoryPool.releaseMemory()方法中会通知其他申请内存并在lock上wait的Task，内存已经释放</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">memoryForTask(taskAttemptId) += toGrant <span class="comment">// 当前Task获取到内存，需要登记到memoryForTask表中</span></span><br><span class="line"><span class="keyword">return</span> toGrant</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="number">0</span>L <span class="comment">// Never reached</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="释放Execution内存"><a href="#释放Execution内存" class="headerlink" title="释放Execution内存"></a>释放Execution内存</h3><p>相对应的，ExecutionMemoryPool.releaseMemory()方法实现了对Execution内存的释放操作，方法实现代码如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">releaseMemory</span></span>(numBytes: <span class="type">Long</span>, taskAttemptId: <span class="type">Long</span>): <span class="type">Unit</span> = lock.synchronized &#123; <span class="keyword">val</span> curMem = memoryForTask.getOrElse(taskAttemptId, <span class="number">0</span>L)</span><br><span class="line"><span class="keyword">var</span> memoryToFree = <span class="keyword">if</span> (curMem <span class="comment">// 计算释放内存大小</span></span><br><span class="line">logWarning( <span class="string">s"Internal error: release called on <span class="subst">$numBytes</span> bytes but task only has <span class="subst">$curMem</span> bytes "</span> +</span><br><span class="line"><span class="string">s"of memory from the <span class="subst">$poolName</span> pool"</span>)</span><br><span class="line">curMem</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">numBytes</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> (memoryForTask.contains(taskAttemptId)) &#123; <span class="comment">// Task执行完成，从内部维护的memoryForTask中移除</span></span><br><span class="line">memoryForTask(taskAttemptId) -= memoryToFree</span><br><span class="line"><span class="keyword">if</span> (memoryForTask(taskAttemptId) <span class="number">0</span>) &#123;</span><br><span class="line">memoryForTask.remove(taskAttemptId)</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line">lock.notifyAll() <span class="comment">// 通知调用acquireMemory()方法申请内存的Task内存已经释放</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>需要注意的，每个Executor JVM中只存在一个UnifiedMemoryManager实例，该对象统一控制该JVM内对Storage和Execution内存的申请和释放操作。</p>
+<p>通过上面的分析，UnifiedMemoryManager可以看做一个统一的内存管理控制器，底层通过StorageMemoryPool 与ExecutionMemoryPool提供的申请内存、释放内存的功能，实现最基本的bookkeeping功能。再向底层，实际操作Block及其Java对象等数据的功能，都是在MemoryStore中进行的，MemoryStore被用来在内存中存储数据，主要包括block、反序列化的Java对象数组、序列化的ByteBuffer，同时它提供了存取内存中各种格式数据的操作。关于MemoryStore的基本结构和原理，我们后续会单独分析。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+    <div class="copyright">
+        <p><span>本文标题:</span><a  href="/2018/04/04/spark-memory-manager-02/">Spark 内存管理之UnifiedMemoryManager</a></p>
+        <p><span>文章作者:</span><a  href="/" title="访问 Crazy Carry 的个人博客">Crazy Carry</a></p>
+        <p><span>发布时间:</span>2018年04月04日 - 16时19分</p>
+        <p><span>最后更新:</span>2018年04月04日 - 16时26分</p>
+        <p>
+            <span>原始链接:</span><a class="post-url" href="/2018/04/04/spark-memory-manager-02/" title="Spark 内存管理之UnifiedMemoryManager">http://crazycarry.github.io/2018/04/04/spark-memory-manager-02/</a>
+            <span class="copy-path" data-clipboard-text="原文: http://crazycarry.github.io/2018/04/04/spark-memory-manager-02/　　作者: Crazy Carry" title=""></span>
+        </p>
+        <p>
+            <span>许可协议:</span><i class="fa fa-creative-commons"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/3.0/cn/" title="中国大陆 (CC BY-NC-SA 3.0 CN)" target = "_blank">"署名-非商用-相同方式共享 3.0"</a> 转载请保留原文链接及作者。
+        </p>
+    </div>
+
+
+
+<nav id="article-nav">
+  
+    <a  href="/2018/04/04/kafka-controller-01/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Kafka controller 设计分析
+        
+      </div>
+    </a>
+  
+  
+    <a  href="/2018/04/04/spark-network-rpc/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Spark RPC通信层设计原理分析</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+
+  
+</article>
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#内存布局"><span class="toc-number">1.</span> <span class="toc-text">内存布局</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#内存控制"><span class="toc-number">2.</span> <span class="toc-text">内存控制</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#申请Storage内存"><span class="toc-number">2.1.</span> <span class="toc-text">申请Storage内存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#释放Storage内存"><span class="toc-number">2.2.</span> <span class="toc-text">释放Storage内存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#申请Execution内存"><span class="toc-number">2.3.</span> <span class="toc-text">申请Execution内存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#释放Execution内存"><span class="toc-number">2.4.</span> <span class="toc-text">释放Execution内存</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+<input type="button" id="tocButton" value="隐藏目录"  title="点击按钮隐藏或者显示文章目录">
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var valueHide = "隐藏目录";
+    var valueShow = "显示目录";
+    if ($(".left-col").is(":hidden")) {
+        $("#tocButton").attr("value", valueShow);
+    }
+    $("#tocButton").click(function() {
+        if ($("#toc").is(":hidden")) {
+            $("#tocButton").attr("value", valueHide);
+            $("#toc").slideDown(320);
+            $(".switch-btn, .switch-area").fadeOut(300);
+        }
+        else {
+            $("#tocButton").attr("value", valueShow);
+            $("#toc").slideUp(350);
+            $(".switch-btn, .switch-area").fadeIn(500);
+        }
+    })
+    if ($(".toc").length < 1) {
+        $("#toc, #tocButton").hide();
+        $(".switch-btn, .switch-area").show();
+    }
+</script>
+
+
+
+
+<div class="bdsharebuttonbox">
+	<a href="#" class="fx fa-weibo bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="fx fa-weixin bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="fx fa-qq bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+	<a href="#" class="fx fa-facebook-official bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="fx fa-twitter bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="fx fa-linkedin bds_linkedin" data-cmd="linkedin" title="分享到linkedin"></a>
+	<a href="#" class="fx fa-files-o bds_copy" data-cmd="copy" title="分享到复制网址"></a>
+</div>
+<script>window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"2","bdSize":"24"},"share":{}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];</script>
+
+
+
+
+    
+        <section class="changyan" id="comments">
+  <!--<div id="uyan_frame"></div>-->
+  <div id="SOHUCS"></div>
+  <script charset="utf-8" type="text/javascript" src="https://changyan.sohu.com/upload/changyan.js"></script>
+  <script type="text/javascript">
+    window.changyan.api.config({
+      appid: 'xxxx',
+      conf: 'xxxxxxxxx'
+    });
+  </script>
+</section>
+    
+
+
+
+    <div class="scroll" id="post-nav-button">
+        
+            <a  href="/2018/04/04/kafka-controller-01/" title="上一篇: Kafka controller 设计分析">
+                <i class="fa fa-angle-left"></i>
+            </a>
+        
+        <a title="文章列表"><i class="fa fa-bars"></i><i class="fa fa-times"></i></a>
+        
+            <a  href="/2018/04/04/spark-network-rpc/" title="下一篇: Spark RPC通信层设计原理分析">
+                <i class="fa fa-angle-right"></i>
+            </a>
+        
+    </div>
+    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2018/04/06/java-gc-performance/">从实际案例聊聊Java应用的GC优化</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/05/java-cas/">深入分析CAS</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/05/java-volatile/">深入分析volatile</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/05/java-synchronized/">深入分析synchronized</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-eos/">Kafka设计解析（八）- Kafka Exactly Once语义与事务机制原理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-consume-detail/">Kafka消费者重新实现的细节</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-performance-why/">Kafka设计解析（六）- Kafka高性能架构之道</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-controller-source/">Kafka controller架构分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-controller-01/">Kafka controller 设计分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-memory-manager-02/">Spark 内存管理之UnifiedMemoryManager</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-network-rpc/">Spark RPC通信层设计原理分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-blockmanager/">Spark BlockManager分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-memory-manager/">Spark内存管理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-performance-02/">Spark性能优化指南——高级篇</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-performance-01/">Spark性能优化指南——基础篇</a></li></ul>
+    <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+    <script>
+        $(".post-list").addClass("toc-article");
+        // $(".post-list-item a").attr("target","_blank");
+        $("#post-nav-button > a:nth-child(2)").click(function() {
+            $(".fa-bars, .fa-times").toggle();
+            $(".post-list").toggle(300);
+            if ($(".toc").length > 0) {
+                $("#toc, #tocButton").toggle(200, function() {
+                    if ($(".switch-area").is(":visible")) {
+                        $("#toc, .switch-btn, .switch-area").toggle();
+                        $("#tocButton").attr("value", valueHide);
+                        }
+                    })
+            }
+            else {
+                $(".switch-btn, .switch-area").fadeToggle(300);
+            }
+        })
+    </script>
+
+
+
+
+    <script>
+        
+    </script>
+
+</div>
+      <footer id="footer">
+    <div class="outer">
+        <div id="footer-info">
+            <div class="footer-left">
+                &copy; 2018 Crazy Carry
+            </div>
+            <div class="footer-right">
+                <a href="http://hexo.io/" target="_blank">Hexo &nbsp;&nbsp;</a><a href="https://github.com/maochunguang" target="_blank">Blog</a> by tommy
+            </div>
+        </div>
+        
+            <div class="visit">
+                
+                    <span id="busuanzi_container_site_pv" style='display:none'>
+                        <span id="site-visit" >极客到访数: 
+                            <span id="busuanzi_value_site_uv"></span>
+                        </span>
+                    </span>
+                
+                
+                    <span>, </span>
+                
+                
+                    <span id="busuanzi_container_page_pv" style='display:none'>
+                        <span id="page-visit">本页阅读量: 
+                            <span id="busuanzi_value_page_pv"></span>
+                        </span>
+                    </span>
+                
+            </div>
+        
+    </div>
+</footer>
+
+    </div>
+    <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            var backgroundnum = 1;
+            var backgroundimg = "url(/background/bg-x.jpg)".replace(/x/gi, Math.ceil(Math.random() * backgroundnum));
+            $("#mobile-nav").css({"background-image": backgroundimg,"background-size": "cover","background-position": "center"});
+            $(".left-col").css({"background-image": backgroundimg,"background-size": "cover","background-position": "center"});
+        })
+    </script>
+
+
+<!-- Google Analytics -->
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'xxxxx', 'auto');
+ga('send', 'pageview');
+
+</script>
+<!-- End Google Analytics -->
+
+
+
+	<script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?xxxxxx";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+
+
+
+<div class="scroll" id="scroll">
+    <a href="#"><i class="fa fa-arrow-up"></i></a>
+    <a href="#comments"><i class="fa fa-comments-o"></i></a>
+    <a href="#footer"><i class="fa fa-arrow-down"></i></a>
+</div>
+<script>
+    $(document).ready(function() {
+        if ($("#comments").length < 1) {
+            $("#scroll > a:nth-child(2)").hide();
+        };
+    })
+</script>
+
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  <script language="javascript">
+    $(function() {
+        $("a[title]").each(function() {
+            var a = $(this);
+            var title = a.attr('title');
+            if (title == undefined || title == "") return;
+            a.data('title', title).removeAttr('title').hover(
+            function() {
+                var offset = a.offset();
+                $("<div id=\"anchortitlecontainer\"></div>").appendTo($("body")).html(title).css({
+                    top: offset.top - a.outerHeight() - 15,
+                    left: offset.left + a.outerWidth()/2 + 1
+                }).fadeIn(function() {
+                    var pop = $(this);
+                    setTimeout(function() {
+                        pop.remove();
+                    }, pop.text().length * 800);
+                });
+            }, function() {
+                $("#anchortitlecontainer").remove();
+            });
+        });
+    });
+</script>
+
+
+  </div>
+</body>
+</html>

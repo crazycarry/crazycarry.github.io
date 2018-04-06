@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="baidu-site-verification" content="L6Lm9d5Crl"/>
+  
+  
+  
+  
+  <title>Spark RPC通信层设计原理分析 | Hexo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Spark将RPC通信层设计的非常巧妙，融合了各种设计/架构模式，将一个分布式集群系统的通信层细节完全屏蔽，这样在上层的计算框架的设计中能够获得很好的灵活性。同时，如果上层想要增加各种新的特性，或者对来自不同企业或组织的程序员贡献的特性，也能够很容易地增加进来，可以避开复杂的通信层而将注意力集中在上层计算框架的处理和优化上，入手难度非常小。另外，对上层计算框架中的各个核心组件的开发、功能增强，以及">
+<meta name="keywords" content="源码分析,大数据,rpc">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark RPC通信层设计原理分析">
+<meta property="og:url" content="http://crazycarry.github.io/2018/04/04/spark-network-rpc/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="Spark将RPC通信层设计的非常巧妙，融合了各种设计/架构模式，将一个分布式集群系统的通信层细节完全屏蔽，这样在上层的计算框架的设计中能够获得很好的灵活性。同时，如果上层想要增加各种新的特性，或者对来自不同企业或组织的程序员贡献的特性，也能够很容易地增加进来，可以避开复杂的通信层而将注意力集中在上层计算框架的处理和优化上，入手难度非常小。另外，对上层计算框架中的各个核心组件的开发、功能增强，以及">
+<meta property="og:locale" content="default">
+<meta property="og:image" content="http://7xim8y.com1.z0.glb.clouddn.com/SparkRPC-ClassDiagram.png?imageView2/1/w/800/h/500">
+<meta property="og:image" content="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517463382/SparkRPC-Create-NettyRpcEnv_xdhorq.png">
+<meta property="og:image" content="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517393595/Master_agnadl.png">
+<meta property="og:image" content="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517457688/Worker.ask__xjou68.png">
+<meta property="og:image" content="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517457805/Master.receiveAndReply_vdzfwo.png">
+<meta property="og:updated_time" content="2018-04-04T08:17:23.091Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Spark RPC通信层设计原理分析">
+<meta name="twitter:description" content="Spark将RPC通信层设计的非常巧妙，融合了各种设计/架构模式，将一个分布式集群系统的通信层细节完全屏蔽，这样在上层的计算框架的设计中能够获得很好的灵活性。同时，如果上层想要增加各种新的特性，或者对来自不同企业或组织的程序员贡献的特性，也能够很容易地增加进来，可以避开复杂的通信层而将注意力集中在上层计算框架的处理和优化上，入手难度非常小。另外，对上层计算框架中的各个核心组件的开发、功能增强，以及">
+<meta name="twitter:image" content="http://7xim8y.com1.z0.glb.clouddn.com/SparkRPC-ClassDiagram.png?imageView2/1/w/800/h/500">
+  
+    <link rel="alternative" href="/atom.xml" title="Hexo" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/img/favicon.png">
+  
+  
+  <link rel="stylesheet" href="//cdn.bootcss.com/animate.css/3.5.0/animate.min.css">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/font-awesome/css/font-awesome.min.css">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  
+  
+      <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+  
+  <!-- 加载特效 -->
+    <script src="/js/pace.js"></script>
+    <link href="/css/pace/pace-theme-flash.css" rel="stylesheet" />
+  <script>
+      var yiliaConfig = {
+          fancybox: true,
+          animate: true,
+          isHome: false,
+          isPost: true,
+          isArchive: false,
+          isTag: false,
+          isCategory: false,
+          open_in_new: false
+      }
+  </script>
+</head>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+    <header id="header" class="inner">
+        <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+        <a href="/" class="profilepic">
+            
+            <img lazy-src="/img/avatar.png" class="js-avatar">
+            
+        </a>
+        <hgroup>
+          <h1 class="header-author"><a href="/">Crazy Carry</a></h1>
+        </hgroup>
+        
+        
+            <form>
+                <input type="text" class="st-default-search-input search" id="local-search-input" placeholder="搜索一下" autocomplete="off">
+            </form>
+            <div id="local-search-result"></div>
+        
+        
+            <script type="text/javascript">
+                (function() {
+                    'use strict';
+                    function getMatchData(keyword, data) {
+                        var matchData = [];
+                        for(var i =0;i<data.length;i++){
+                            if(data[i].title.toLowerCase().indexOf(keyword)>=0) 
+                                matchData.push(data[i])
+                        }
+                        return matchData;
+                    }
+                    var $input = $('#local-search-input');
+                    var $resultContent = $('#local-search-result');
+                    $input.keyup(function(){
+                        $.ajax({
+                            url: '/search.json',
+                            dataType: "json",
+                            success: function( json ) {
+                                var str='<ul class=\"search-result-list\">';                
+                                var keyword = $input.val().trim().toLowerCase();
+                                $resultContent.innerHTML = "";
+                                if ($input.val().trim().length <= 0) {
+                                    $resultContent.empty();
+                                    $('#switch-area').show();
+                                    return;
+                                }
+                                var results = getMatchData(keyword, json);
+                                if(results.length === 0){
+                                    $resultContent.empty();
+                                    $('#switch-area').show();
+                                    return;
+                                } 
+                                for(var i =0; i<results.length; i++){
+                                    str += "<li><a href='"+ results[i].url +"' class='search-result-title'>"+ results[i].title +"</a></li>";
+                                }
+                                str += "</ul>";
+                                $resultContent.empty();
+                                $resultContent.append(str);
+                                $('#switch-area').hide();
+                            }
+                        });
+                    });
+                })();
+            </script>
+        
+        
+            <div id="switch-btn" class="switch-btn">
+                <div class="icon">
+                    <div class="icon-ctn">
+                        <div class="icon-wrap icon-house" data-idx="0">
+                            <div class="birdhouse"></div>
+                            <div class="birdhouse_holes"></div>
+                        </div>
+                        <div class="icon-wrap icon-ribbon hide" data-idx="1">
+                            <div class="ribbon"></div>
+                        </div>
+                        
+                        <div class="icon-wrap icon-link hide" data-idx="2">
+                            <div class="loopback_l"></div>
+                            <div class="loopback_r"></div>
+                        </div>
+                        
+                        
+                        <div class="icon-wrap icon-me hide" data-idx="3">
+                            <div class="user"></div>
+                            <div class="shoulder"></div>
+                        </div>
+                        
+                    </div>
+                </div>
+                <div class="tips-box hide">
+                    <div class="tips-arrow"></div>
+                    <ul class="tips-inner">
+                        <li>菜单</li>
+                        <li>标签</li>
+                        
+                        <li>友情链接</li>
+                        
+                        
+                        <li>关于我</li>
+                        
+                    </ul>
+                </div>
+            </div>
+        
+        <div id="switch-area" class="switch-area">
+            <div class="switch-wrap">
+                <section class="switch-part switch-part1">
+                    <nav class="header-menu">
+                        <ul>
+                        
+                            <li><a  href="/archives/">所有文章</a></li>
+                        
+                            <li><a  href="/categories/开发工具/">玩转开发工具</a></li>
+                        
+                            <li><a  href="/categories/spark">Spark</a></li>
+                        
+                            <li><a  href="/categories/kafka">Kafka</a></li>
+                        
+                            <li><a  href="/about/">关于我</a></li>
+                        
+                        </ul>
+                    </nav>
+                    <nav class="header-nav">
+                        <ul class="social">
+                            
+                                <a class="fl github"  target="_blank" href="/xxxxx" title="github">github</a>
+                            
+                                <a class="fl weibo"  target="_blank" href="/xxxxxxxx" title="weibo">weibo</a>
+                            
+                                <a class="fl rss"  target="_blank" href="/atom.xml" title="rss">rss</a>
+                            
+                        </ul>
+                    </nav>
+                </section>
+                
+                <section class="switch-part switch-part2">
+                    <div class="widget tagcloud" id="js-tagcloud">
+                        <a href="/tags/gc-优化/" style="font-size: 10px;">gc 优化</a> <a href="/tags/java-进阶/" style="font-size: 14.29px;">java 进阶</a> <a href="/tags/jvm/" style="font-size: 14.29px;">jvm</a> <a href="/tags/rpc/" style="font-size: 10px;">rpc</a> <a href="/tags/spark/" style="font-size: 11.43px;">spark</a> <a href="/tags/内存管理/" style="font-size: 12.86px;">内存管理</a> <a href="/tags/原理分析/" style="font-size: 12.86px;">原理分析</a> <a href="/tags/大数据/" style="font-size: 20px;">大数据</a> <a href="/tags/性能优化/" style="font-size: 15.71px;">性能优化</a> <a href="/tags/架构设计/" style="font-size: 17.14px;">架构设计</a> <a href="/tags/消息中间件/" style="font-size: 15.71px;">消息中间件</a> <a href="/tags/源码分析/" style="font-size: 18.57px;">源码分析</a>
+                    </div>
+                </section>
+                
+                
+                <section class="switch-part switch-part3">
+                    <div id="js-friends">
+                    
+                      <a target="_blank"  class="main-nav-link switch-friends-link" href="http://blog.csdn.net/baidu_21483933">csdn</a>
+                    
+                      <a target="_blank"  class="main-nav-link switch-friends-link" href="https://segmentfault.com/blog/maocg_web">segmentfault</a>
+                    
+                      <a target="_blank"  class="main-nav-link switch-friends-link" href="http://www.jianshu.com/users/eb37ef89c746/latest_articles">简书</a>
+                    
+                    </div>
+                </section>
+                
+                
+                
+                <section class="switch-part switch-part4">
+                
+                    <div id="js-aboutme">爱动漫,爱游戏,爱编程,爱运动,爱的太多了!</div>
+                </section>
+                
+            </div>
+        </div>
+    </header>
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+      <div class="overlay">
+          <div class="slider-trigger"></div>
+          <h1 class="header-author js-mobile-header hide"><a href="/" title="回到主页">Crazy Carry</a></h1>
+      </div>
+    <div class="intrude-less">
+        <header id="header" class="inner">
+            <a href="/" class="profilepic">
+                
+                    <img lazy-src="/img/avatar.png" class="js-avatar">
+                
+            </a>
+            <hgroup>
+              <h1 class="header-author"><a href="/" title="回到主页">Crazy Carry</a></h1>
+            </hgroup>
+            
+            <nav class="header-menu">
+                <ul>
+                
+                    <li><a href="/archives/">所有文章</a></li>
+                
+                    <li><a href="/categories/开发工具/">玩转开发工具</a></li>
+                
+                    <li><a href="/categories/spark">Spark</a></li>
+                
+                    <li><a href="/categories/kafka">Kafka</a></li>
+                
+                    <li><a href="/about/">关于我</a></li>
+                
+                <div class="clearfix"></div>
+                </ul>
+            </nav>
+            <nav class="header-nav">
+                <div class="social">
+                    
+                        <a class="github" target="_blank" href="/xxxxx" title="github">github</a>
+                    
+                        <a class="weibo" target="_blank" href="/xxxxxxxx" title="weibo">weibo</a>
+                    
+                        <a class="rss" target="_blank" href="/atom.xml" title="rss">rss</a>
+                    
+                </div>
+            </nav>
+        </header>                
+    </div>
+</nav>
+      <div class="body-wrap"><article id="post-spark-network-rpc" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a  href="/2018/04/04/spark-network-rpc/" class="article-date">
+      <time datetime="2018-04-04T08:08:40.000Z" itemprop="datePublished">2018-04-04</time>
+</a>
+
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy" />
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Spark RPC通信层设计原理分析
+    </h1>
+  
+
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+    <div class="article-category tagcloud">
+    <a class="article-category-link" href="/categories/spark/">spark</a>
+    </div>
+
+
+        
+    <div class="article-tag tagcloud">
+        <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/rpc/">rpc</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/大数据/">大数据</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/源码分析/">源码分析</a></li></ul>
+    </div>
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+          
+        <p>Spark将RPC通信层设计的非常巧妙，融合了各种设计/架构模式，将一个分布式集群系统的通信层细节完全屏蔽，这样在上层的计算框架的设计中能够获得很好的灵活性。同时，如果上层想要增加各种新的特性，或者对来自不同企业或组织的程序员贡献的特性，也能够很容易地增加进来，可以避开复杂的通信层而将注意力集中在上层计算框架的处理和优化上，入手难度非常小。另外，对上层计算框架中的各个核心组件的开发、功能增强，以及Bug修复等都会变得更加容易<br><a id="more"></a></p>
+<h2 id="Spark-RPC层设计概览"><a href="#Spark-RPC层设计概览" class="headerlink" title="Spark RPC层设计概览"></a>Spark RPC层设计概览</h2><p>Spark RPC层是基于优秀的网络通信框架Netty设计开发的，同时获得了Netty所具有的网络通信的可靠性和高效性。我们先把Spark中与RPC相关的一些类的关系梳理一下，为了能够更直观地表达RPC的设计，我们先从类的设计来看，如下图所示<br><a href="http://7xim8y.com1.z0.glb.clouddn.com/SparkRPC-ClassDiagram.png?imageView2/1/w/800/h/500" target="_blank" rel="noopener"><img src="http://7xim8y.com1.z0.glb.clouddn.com/SparkRPC-ClassDiagram.png?imageView2/1/w/800/h/500" alt=""></a><br>通过上图，可以清晰地将RPC设计分离出来，能够对RPC层有一个整体的印象。了解Spark RPC层的几个核心的概念（我们通过Spark源码中对应的类名来标识），能够更好地理解设计</p>
+<h3 id="RpcEndpoint"><a href="#RpcEndpoint" class="headerlink" title="RpcEndpoint"></a>RpcEndpoint</h3><p>RpcEndpoint定义了RPC通信过程中的通信端对象，除了具有管理一个RpcEndpoint生命周期的操作（constructor -&gt; onStart -&gt; receive* -&gt; onStop），并给出了通信过程中一个RpcEndpoint所具有的基于事件驱动的行为（连接、断开、网络异常），实际上对于Spark框架来说主要是接收消息并处理，具体可以看对应特质RpcEndpoint的代码定义，如下所示</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span>[spark] <span class="class"><span class="keyword">trait</span> <span class="title">RpcEndpoint</span> </span>&#123;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * The [[RpcEnv]] that this [[RpcEndpoint]] is registered to.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="keyword">val</span> rpcEnv: <span class="type">RpcEnv</span></span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * The [[RpcEndpointRef]] of this [[RpcEndpoint]]. `self` will become valid when `onStart` is</span></span><br><span class="line"><span class="comment"> * called. And `self` will become `null` when `onStop` is called.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Note: Because before `onStart`, [[RpcEndpoint]] has not yet been registered and there is not</span></span><br><span class="line"><span class="comment"> * valid [[RpcEndpointRef]] for it. So don't call `self` before `onStart` is called.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="keyword">final</span> <span class="function"><span class="keyword">def</span> <span class="title">self</span></span>: <span class="type">RpcEndpointRef</span> = &#123;</span><br><span class="line"> require(rpcEnv != <span class="literal">null</span>, <span class="string">"rpcEnv has not been initialized"</span>)</span><br><span class="line"> rpcEnv.endpointRef(<span class="keyword">this</span>)</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Process messages from `RpcEndpointRef.send` or `RpcCallContext.reply`. If receiving a</span></span><br><span class="line"><span class="comment"> * unmatched message, `SparkException` will be thrown and sent to `onError`.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">receive</span></span>: <span class="type">PartialFunction</span>[<span class="type">Any</span>, <span class="type">Unit</span>] = &#123;</span><br><span class="line"> <span class="keyword">case</span> _ =&gt; <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">SparkException</span>(self + <span class="string">" does not implement 'receive'"</span>)</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Process messages from `RpcEndpointRef.ask`. If receiving a unmatched message,</span></span><br><span class="line"><span class="comment"> * `SparkException` will be thrown and sent to `onError`.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">receiveAndReply</span></span>(context: <span class="type">RpcCallContext</span>): <span class="type">PartialFunction</span>[<span class="type">Any</span>, <span class="type">Unit</span>] = &#123;</span><br><span class="line"> <span class="keyword">case</span> _ =&gt; context.sendFailure(<span class="keyword">new</span> <span class="type">SparkException</span>(self + <span class="string">" won't reply anything"</span>))</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Invoked when any exception is thrown during handling messages.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">onError</span></span>(cause: <span class="type">Throwable</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="comment">// By default, throw e and let RpcEnv handle it</span></span><br><span class="line"> <span class="keyword">throw</span> cause</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Invoked when `remoteAddress` is connected to the current node.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">onConnected</span></span>(remoteAddress: <span class="type">RpcAddress</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="comment">// By default, do nothing.</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Invoked when `remoteAddress` is lost.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">onDisconnected</span></span>(remoteAddress: <span class="type">RpcAddress</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="comment">// By default, do nothing.</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Invoked when some network error happens in the connection between the current node and</span></span><br><span class="line"><span class="comment"> * `remoteAddress`.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">onNetworkError</span></span>(cause: <span class="type">Throwable</span>, remoteAddress: <span class="type">RpcAddress</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="comment">// By default, do nothing.</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Invoked before [[RpcEndpoint]] starts to handle any message.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">onStart</span></span>(): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="comment">// By default, do nothing.</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Invoked when [[RpcEndpoint]] is stopping. `self` will be `null` in this method and you cannot</span></span><br><span class="line"><span class="comment"> * use it to send or ask messages.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">onStop</span></span>(): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="comment">// By default, do nothing.</span></span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>通过上面的receive方法，接收由RpcEndpointRef.send方法发送的消息，该类消息不需要进行响应消息（Reply），而只是在RpcEndpoint端进行处理。通过receiveAndReply方法，接收由RpcEndpointRef.ask发送的消息，RpcEndpoint端处理完消息后，需要给调用RpcEndpointRef.ask的通信端响应消息（Reply）</p>
+<h3 id="RpcEndpointRef"><a href="#RpcEndpointRef" class="headerlink" title="RpcEndpointRef"></a>RpcEndpointRef</h3><p>RpcEndpointRef是一个对RpcEndpoint的远程引用对象，通过它可以向远程的RpcEndpoint端发送消息以进行通信。RpcEndpointRef特质的定义，代码如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span>[spark] <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">RpcEndpointRef</span>(<span class="params">conf: <span class="type">SparkConf</span></span>)</span></span><br><span class="line"><span class="class"> <span class="keyword">extends</span> <span class="title">Serializable</span> <span class="keyword">with</span> <span class="title">Logging</span> </span>&#123;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>[<span class="keyword">this</span>] <span class="keyword">val</span> maxRetries = <span class="type">RpcUtils</span>.numRetries(conf)</span><br><span class="line"> <span class="keyword">private</span>[<span class="keyword">this</span>] <span class="keyword">val</span> retryWaitMs = <span class="type">RpcUtils</span>.retryWaitMs(conf)</span><br><span class="line"> <span class="keyword">private</span>[<span class="keyword">this</span>] <span class="keyword">val</span> defaultAskTimeout = <span class="type">RpcUtils</span>.askRpcTimeout(conf)</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * return the address for the [[RpcEndpointRef]]</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">address</span></span>: <span class="type">RpcAddress</span></span><br><span class="line"></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">name</span></span>: <span class="type">String</span></span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Sends a one-way asynchronous message. Fire-and-forget semantics.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">send</span></span>(message: <span class="type">Any</span>): <span class="type">Unit</span></span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Send a message to the corresponding [[RpcEndpoint.receiveAndReply)]] and return a [[Future]] to</span></span><br><span class="line"><span class="comment"> * receive the reply within the specified timeout.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * This method only sends the message once and never retries.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">ask</span></span>[<span class="type">T</span>: <span class="type">ClassTag</span>](message: <span class="type">Any</span>, timeout: <span class="type">RpcTimeout</span>): <span class="type">Future</span>[<span class="type">T</span>]</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Send a message to the corresponding [[RpcEndpoint.receiveAndReply)]] and return a [[Future]] to</span></span><br><span class="line"><span class="comment"> * receive the reply within a default timeout.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * This method only sends the message once and never retries.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">ask</span></span>[<span class="type">T</span>: <span class="type">ClassTag</span>](message: <span class="type">Any</span>): <span class="type">Future</span>[<span class="type">T</span>] = ask(message, defaultAskTimeout)</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Send a message to the corresponding [[RpcEndpoint.receiveAndReply]] and get its result within a</span></span><br><span class="line"><span class="comment"> * default timeout, throw an exception if this fails.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Note: this is a blocking action which may cost a lot of time,  so don't call it in a message</span></span><br><span class="line"><span class="comment"> * loop of [[RpcEndpoint]].</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment"> * @param message the message to send</span></span><br><span class="line"><span class="comment"> * @tparam T type of the reply message</span></span><br><span class="line"><span class="comment"> * @return the reply message from the corresponding [[RpcEndpoint]]</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">askSync</span></span>[<span class="type">T</span>: <span class="type">ClassTag</span>](message: <span class="type">Any</span>): <span class="type">T</span> = askSync(message, defaultAskTimeout)</span><br><span class="line"></span><br><span class="line"> <span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Send a message to the corresponding [[RpcEndpoint.receiveAndReply]] and get its result within a</span></span><br><span class="line"><span class="comment"> * specified timeout, throw an exception if this fails.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Note: this is a blocking action which may cost a lot of time, so don't call it in a message</span></span><br><span class="line"><span class="comment"> * loop of [[RpcEndpoint]].</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param message the message to send</span></span><br><span class="line"><span class="comment"> * @param timeout the timeout duration</span></span><br><span class="line"><span class="comment"> * @tparam T type of the reply message</span></span><br><span class="line"><span class="comment"> * @return the reply message from the corresponding [[RpcEndpoint]]</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">askSync</span></span>[<span class="type">T</span>: <span class="type">ClassTag</span>](message: <span class="type">Any</span>, timeout: <span class="type">RpcTimeout</span>): <span class="type">T</span> = &#123;</span><br><span class="line"> <span class="keyword">val</span> future = ask[<span class="type">T</span>](message, timeout)</span><br><span class="line"> timeout.awaitResult(future)</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>send方法发送消息后不等待响应，亦即Send-and-forget，Spark中基于Netty实现，实现在NettyRpcEndpointRef中</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">ask</span></span>[<span class="type">T</span>: <span class="type">ClassTag</span>](message: <span class="type">Any</span>, timeout: <span class="type">RpcTimeout</span>): <span class="type">Future</span>[<span class="type">T</span>] = &#123;</span><br><span class="line"> nettyEnv.ask(<span class="keyword">new</span> <span class="type">RequestMessage</span>(nettyEnv.address, <span class="keyword">this</span>, message), timeout)</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<h3 id="RpcEnv"><a href="#RpcEnv" class="headerlink" title="RpcEnv"></a>RpcEnv</h3><p>一个RpcEnv是一个RPC环境对象，它负责管理RpcEndpoint的注册，以及如何从一个RpcEndpoint获取到一个RpcEndpointRef。RpcEndpoint是一个通信端，例如Spark集群中的Master，或Worker，都是一个RpcEndpoint。但是，如果想要与一个RpcEndpoint端进行通信，一定需要获取到该RpcEndpoint一个RpcEndpointRef，而获取该RpcEndpointRef只能通过一个RpcEnv环境对象来获取。所以说，一个RpcEnv对象才是RPC通信过程中的“指挥官”，在RpcEnv类中，有一个核心的方法：<br>def setupEndpoint(name: String, endpoint: RpcEndpoint): RpcEndpointRef<br>通过上面方法，可以注册一个RpcEndpoint到RpcEnv环境对象中，有RpcEnv来管理RpcEndpoint到RpcEndpointRef的绑定关系。在注册RpcEndpoint时，每个RpcEndpoint都需要有一个唯一的名称。<br>Spark中基于Netty实现通信，所以对应的RpcEnv实现为NettyRpcEnv，上面方法的实现，如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">setupEndpoint</span></span>(name: <span class="type">String</span>, endpoint: <span class="type">RpcEndpoint</span>): <span class="type">RpcEndpointRef</span> = &#123;</span><br><span class="line"> dispatcher.registerRpcEndpoint(name, endpoint)</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>调用NettyRpcEnv内部的Dispatcher对象注册一个RpcEndpoint</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">registerRpcEndpoint</span></span>(name: <span class="type">String</span>, endpoint: <span class="type">RpcEndpoint</span>): <span class="type">NettyRpcEndpointRef</span> = &#123;</span><br><span class="line"> <span class="keyword">val</span> addr = <span class="type">RpcEndpointAddress</span>(nettyEnv.address, name)</span><br><span class="line"> <span class="keyword">val</span> endpointRef = <span class="keyword">new</span> <span class="type">NettyRpcEndpointRef</span>(nettyEnv.conf, addr, nettyEnv)</span><br><span class="line"> synchronized &#123;</span><br><span class="line"> <span class="keyword">if</span> (stopped) &#123;</span><br><span class="line"> <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">IllegalStateException</span>(<span class="string">"RpcEnv has been stopped"</span>)</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="keyword">if</span> (endpoints.putIfAbsent(name, <span class="keyword">new</span> <span class="type">EndpointData</span>(name, endpoint, endpointRef)) != <span class="literal">null</span>) &#123;</span><br><span class="line"> <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">IllegalArgumentException</span>(<span class="string">s"There is already an RpcEndpoint called <span class="subst">$name</span>"</span>)</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="keyword">val</span> data = endpoints.get(name)</span><br><span class="line"> endpointRefs.put(data.endpoint, data.ref)</span><br><span class="line"> receivers.offer(data)  <span class="comment">// for the OnStart message</span></span><br><span class="line"> &#125;</span><br><span class="line"> endpointRef</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>一个RpcEndpoint只能注册一次（根据RpcEndpoint的名称来检查唯一性），这样在Dispatcher内部注册并维护RpcEndpoint与RpcEndpointRef的绑定关系，通过如下两个内部结构：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">val</span> endpoints: <span class="type">ConcurrentMap</span>[<span class="type">String</span>, <span class="type">EndpointData</span>] =</span><br><span class="line"> <span class="keyword">new</span> <span class="type">ConcurrentHashMap</span>[<span class="type">String</span>, <span class="type">EndpointData</span>]</span><br><span class="line"> <span class="keyword">private</span> <span class="keyword">val</span> endpointRefs: <span class="type">ConcurrentMap</span>[<span class="type">RpcEndpoint</span>, <span class="type">RpcEndpointRef</span>] =</span><br><span class="line"> <span class="keyword">new</span> <span class="type">ConcurrentHashMap</span>[<span class="type">RpcEndpoint</span>, <span class="type">RpcEndpointRef</span>]</span><br></pre></td></tr></table></figure>
+<p>可以看到，一个命名唯一的RpcEndpoint在Dispatcher中对应一个EndpointData来维护其信息，该数据结构定义，如下所示:</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="class"><span class="keyword">class</span> <span class="title">EndpointData</span>(<span class="params"></span></span></span><br><span class="line"><span class="class"><span class="params"> val name: <span class="type">String</span>,</span></span></span><br><span class="line"><span class="class"><span class="params"> val endpoint: <span class="type">RpcEndpoint</span>,</span></span></span><br><span class="line"><span class="class"><span class="params">val ref: <span class="type">NettyRpcEndpointRef</span></span>) </span>&#123;</span><br><span class="line"> <span class="keyword">val</span> inbox = <span class="keyword">new</span> <span class="type">Inbox</span>(ref, endpoint)</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>这里，每一个命名唯一的RpcEndpoint对应一个线程安全的Inbox，所有发送给一个RpcEndpoint的消息，都由对应的Inbox将对应的消息路由给RpcEndpoint进行处理，后面我们会详细分析Inbox</p>
+<h2 id="创建NettyRpcEnv环境对象"><a href="#创建NettyRpcEnv环境对象" class="headerlink" title="创建NettyRpcEnv环境对象"></a>创建NettyRpcEnv环境对象</h2><p>创建NettyRpcEnv对象，是一个非常重的操作，所以在框架里使用过程中要尽量避免重复创建。创建NettyRpcEnv，会创建很多用来处理底层RPC通信的线程和数据结构。具体的创建过程，如下图所示：<br><a href="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517463382/SparkRPC-Create-NettyRpcEnv_xdhorq.png" target="_blank" rel="noopener"><img src="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517463382/SparkRPC-Create-NettyRpcEnv_xdhorq.png" alt=""></a></p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span>[rpc] <span class="class"><span class="keyword">class</span> <span class="title">NettyRpcEnvFactory</span> <span class="keyword">extends</span> <span class="title">RpcEnvFactory</span> <span class="keyword">with</span> <span class="title">Logging</span> </span>&#123;</span><br><span class="line"></span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">create</span></span>(config: <span class="type">RpcEnvConfig</span>): <span class="type">RpcEnv</span> = &#123;</span><br><span class="line"> <span class="keyword">val</span> sparkConf = config.conf</span><br><span class="line"> <span class="comment">// Use JavaSerializerInstance in multiple threads is safe. However, if we plan to support</span></span><br><span class="line"> <span class="comment">// KryoSerializer in future, we have to use ThreadLocal to store SerializerInstance</span></span><br><span class="line"> <span class="keyword">val</span> javaSerializerInstance =</span><br><span class="line"> <span class="keyword">new</span> <span class="type">JavaSerializer</span>(sparkConf).newInstance().asInstanceOf[<span class="type">JavaSerializerInstance</span>]</span><br><span class="line"> <span class="keyword">val</span> nettyEnv =</span><br><span class="line"> <span class="keyword">new</span> <span class="type">NettyRpcEnv</span>(sparkConf, javaSerializerInstance, config.advertiseAddress,</span><br><span class="line"> config.securityManager)</span><br><span class="line"> <span class="keyword">if</span> (!config.clientMode) &#123;</span><br><span class="line"> <span class="keyword">val</span> startNettyRpcEnv: <span class="type">Int</span> =&gt; (<span class="type">NettyRpcEnv</span>, <span class="type">Int</span>) = &#123; actualPort =&gt;</span><br><span class="line"> nettyEnv.startServer(config.bindAddress, actualPort)</span><br><span class="line"> (nettyEnv, nettyEnv.address.port)</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="keyword">try</span> &#123;</span><br><span class="line"> <span class="type">Utils</span>.startServiceOnPort(config.port, startNettyRpcEnv, sparkConf, config.name)._1</span><br><span class="line"> &#125; <span class="keyword">catch</span> &#123;</span><br><span class="line"> <span class="keyword">case</span> <span class="type">NonFatal</span>(e) =&gt;</span><br><span class="line"> nettyEnv.shutdown()</span><br><span class="line"> <span class="keyword">throw</span> e</span><br><span class="line"> &#125;</span><br><span class="line"> &#125;</span><br><span class="line"> nettyEnv</span><br><span class="line"> &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>具体要点，描述如下：</p>
+<ul>
+<li>创建一个NettyRpcEnv对象对象，需要通过NettyRpcEnvFactory来创建</li>
+<li>Dispatcher负责RPC消息的路由，它能够将消息路由到对应的RpcEndpoint进行处理</li>
+<li>NettyStreamManager负责提供文件服务（文件、JAR文件、目录）</li>
+<li>NettyRpcHandler负责处理网络IO事件，接收RPC调用请求，并通过Dispatcher派发消息</li>
+<li>TransportContext负责管理网路传输上下文信息：创建MessageEncoder、MessageDecoder、TransportClientFactory、TransportServer</li>
+<li>TransportServer配置并启动一个RPC Server服务</li>
+</ul>
+<h2 id="消息路由过程分析"><a href="#消息路由过程分析" class="headerlink" title="消息路由过程分析"></a>消息路由过程分析</h2><p>基于Standalone模式，Spark集群具有Master和一组Worker，Worker与Master之间需要进行通信，我们以此为例，来说明基于Spark PRC层是如何实现消息的路由的。<br>首先看Master端实现，代码如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">startRpcEnvAndEndpoint</span></span>(</span><br><span class="line"> host: <span class="type">String</span>,</span><br><span class="line"> port: <span class="type">Int</span>,</span><br><span class="line"> webUiPort: <span class="type">Int</span>,</span><br><span class="line"> conf: <span class="type">SparkConf</span>): (<span class="type">RpcEnv</span>, <span class="type">Int</span>, <span class="type">Option</span>[<span class="type">Int</span>]) = &#123;</span><br><span class="line"> <span class="keyword">val</span> securityMgr = <span class="keyword">new</span> <span class="type">SecurityManager</span>(conf)</span><br><span class="line"> <span class="keyword">val</span> rpcEnv = <span class="type">RpcEnv</span>.create(<span class="type">SYSTEM_NAME</span>, host, port, conf, securityMgr)</span><br><span class="line"> <span class="keyword">val</span> masterEndpoint = rpcEnv.setupEndpoint(<span class="type">ENDPOINT_NAME</span>,</span><br><span class="line"> <span class="keyword">new</span> <span class="type">Master</span>(rpcEnv, rpcEnv.address, webUiPort, securityMgr, conf))</span><br><span class="line"> <span class="keyword">val</span> portsResponse = masterEndpoint.askSync[<span class="type">BoundPortsResponse</span>](<span class="type">BoundPortsRequest</span>)</span><br><span class="line"> (rpcEnv, portsResponse.webUIPort, portsResponse.restPort)</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>上面代码中，创建一个RpcEnv对象，通过创建一个NettyRpcEnvFactory对象来完成该RpcEnv对象的创建，实际创建了一个NettyRpcEnv对象。接着，通过setupEndpoint方法注册一个RpcEndpoint，这里Master就是一个RpcEndpoint，返回的masterEndpoint是Master的RpcEndpointRef引用对象。下面，我们看一下，发送一个BoundPortsRequest消息，具体的消息路由过程，如下图所示：<br><a href="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517393595/Master_agnadl.png" target="_blank" rel="noopener"><img src="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517393595/Master_agnadl.png" alt=""></a></p>
+<p>上图中显示本地消息和远程消息派发的流程，最主要的区别是在接收消息时：接收消息走的是Inbox，发送消息走的是Outbox</p>
+<h2 id="本地消息路由"><a href="#本地消息路由" class="headerlink" title="本地消息路由"></a>本地消息路由</h2><p>发送一个BoundPortsRequest消息，实际走的是本地消息路由，直接放到对应的Inbox中，对应的代码处理逻辑如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Posts a message to a specific endpoint.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param endpointName name of the endpoint.</span></span><br><span class="line"><span class="comment"> * @param message the message to post</span></span><br><span class="line"><span class="comment"> * @param callbackIfStopped callback function if the endpoint is stopped.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">private</span> <span class="function"><span class="keyword">def</span> <span class="title">postMessage</span></span>(</span><br><span class="line"> endpointName: <span class="type">String</span>,</span><br><span class="line"> message: <span class="type">InboxMessage</span>,</span><br><span class="line"> callbackIfStopped: (<span class="type">Exception</span>) =&gt; <span class="type">Unit</span>): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="keyword">val</span> error = synchronized &#123;</span><br><span class="line"> <span class="keyword">val</span> data = endpoints.get(endpointName)</span><br><span class="line"> <span class="keyword">if</span> (stopped) &#123;</span><br><span class="line"> <span class="type">Some</span>(<span class="keyword">new</span> <span class="type">RpcEnvStoppedException</span>())</span><br><span class="line"> &#125; <span class="keyword">else</span> <span class="keyword">if</span> (data == <span class="literal">null</span>) &#123;</span><br><span class="line"> <span class="type">Some</span>(<span class="keyword">new</span> <span class="type">SparkException</span>(<span class="string">s"Could not find <span class="subst">$endpointName</span>."</span>))</span><br><span class="line"> &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"> data.inbox.post(message)</span><br><span class="line"> receivers.offer(data)</span><br><span class="line"> <span class="type">None</span></span><br><span class="line"> &#125;</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="comment">// We don't need to call `onStop` in the `synchronized` block</span></span><br><span class="line"> error.foreach(callbackIfStopped)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面通过data.inbox派发消息，然后将消息data :EndpointData放入到receivers队列，触发Dispatcher内部的MessageLoop线程去消费，如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** Message loop used for dispatching messages. */</span></span><br><span class="line"> <span class="keyword">private</span> <span class="class"><span class="keyword">class</span> <span class="title">MessageLoop</span> <span class="keyword">extends</span> <span class="title">Runnable</span> </span>&#123;</span><br><span class="line"> <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">run</span></span>(): <span class="type">Unit</span> = &#123;</span><br><span class="line"> <span class="keyword">try</span> &#123;</span><br><span class="line"> <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line"> <span class="keyword">try</span> &#123;</span><br><span class="line"> <span class="keyword">val</span> data = receivers.take()</span><br><span class="line"> <span class="keyword">if</span> (data == <span class="type">PoisonPill</span>) &#123;</span><br><span class="line"> <span class="comment">// Put PoisonPill back so that other MessageLoops can see it.</span></span><br><span class="line"> receivers.offer(<span class="type">PoisonPill</span>)</span><br><span class="line"> <span class="keyword">return</span></span><br><span class="line"> &#125;</span><br><span class="line"> data.inbox.process(<span class="type">Dispatcher</span>.<span class="keyword">this</span>)</span><br><span class="line"> &#125; <span class="keyword">catch</span> &#123;</span><br><span class="line"> <span class="keyword">case</span> <span class="type">NonFatal</span>(e) =&gt; logError(e.getMessage, e)</span><br><span class="line"> &#125;</span><br><span class="line"> &#125;</span><br><span class="line"> &#125; <span class="keyword">catch</span> &#123;</span><br><span class="line"> <span class="keyword">case</span> ie: <span class="type">InterruptedException</span> =&gt; <span class="comment">// exit</span></span><br><span class="line"> &#125;</span><br><span class="line"> &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>上面的过程在Dispatcher 内部线程池执行。内部线程池如下</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">val</span> threadpool: <span class="type">ThreadPoolExecutor</span> = &#123;</span><br><span class="line"> <span class="keyword">val</span> numThreads = nettyEnv.conf.getInt(<span class="string">"spark.rpc.netty.dispatcher.numThreads"</span>,</span><br><span class="line"> math.max(<span class="number">2</span>, <span class="type">Runtime</span>.getRuntime.availableProcessors()))</span><br><span class="line"> <span class="keyword">val</span> pool = <span class="type">ThreadUtils</span>.newDaemonFixedThreadPool(numThreads, <span class="string">"dispatcher-event-loop"</span>)</span><br><span class="line"> <span class="keyword">for</span> (i </span><br><span class="line"> pool.execute(<span class="keyword">new</span> <span class="type">MessageLoop</span>)</span><br><span class="line"> &#125;</span><br><span class="line"> pool</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>这里，又继续调用Inbox的process方法来派发消息到指定的RpcEndpoint。通过上面的序列图，我们可以通过源码分析看到，原始消息被层层封装为一个RpcMessage ，该消息在Inbox的process方法中处理派发逻辑，如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="type">RpcMessage</span>(_sender, content, context) =&gt;</span><br><span class="line"> <span class="keyword">try</span> &#123;</span><br><span class="line"> endpoint.receiveAndReply(context).applyOrElse[<span class="type">Any</span>, <span class="type">Unit</span>](content, &#123; msg =&gt;</span><br><span class="line"> <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">SparkException</span>(<span class="string">s"Unsupported message <span class="subst">$message</span> from <span class="subst">$&#123;_sender&#125;</span>"</span>)</span><br><span class="line"> &#125;)</span><br><span class="line"> &#125; <span class="keyword">catch</span> &#123;</span><br><span class="line"> <span class="keyword">case</span> <span class="type">NonFatal</span>(e) =&gt;</span><br><span class="line"> context.sendFailure(e)</span><br><span class="line"> <span class="comment">// Throw the exception -- this exception will be caught by the safelyCall function.</span></span><br><span class="line"> <span class="comment">// The endpoint's onError function will be called.</span></span><br><span class="line"> <span class="keyword">throw</span> e</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>到这里，消息已经发送给对应的RpcEndpoint的receiveAndReply方法，我们这里实际上是Master实现类，这里的消息解包后为content: BoundPortsRequest，接下来应该看Master的receiveAndReply方法如何处理该本地消息，代码如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="type">BoundPortsRequest</span> =&gt;</span><br><span class="line"> context.reply(<span class="type">BoundPortsResponse</span>(address.port, webUi.boundPort, restServerBoundPort))</span><br></pre></td></tr></table></figure>
+<p>可以看出，实际上上面的处理逻辑没有什么处理，只是通过BoundPortsResponse返回了几个Master端的几个端口号数据。</p>
+<h2 id="远程消息路由"><a href="#远程消息路由" class="headerlink" title="远程消息路由"></a>远程消息路由</h2><p>我们都知道，Worker启动时，会向Master注册，通过该场景我们分析一下远程消息路由的过程。<br>先看一下Worker端向Master注册过程，如下图所示：<br><a href="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517457688/Worker.ask__xjou68.png" target="_blank" rel="noopener"><img src="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517457688/Worker.ask__xjou68.png" alt=""></a></p>
+<p>Worker启动时，会首先获取到一个Master的RpcEndpointRef远程引用，通过该引用对象能够与Master进行RPC通信，经过上面消息派发，最终通过Netty的Channel将消息发送到远程Master端。<br>通过前面说明，我们知道Worker向Master注册的消息RegisterWorker应该最终会被路由到Master对应的Inbox中，然后派发给Master进行处理。下面，我们看一下Master端接收并处理消息的过程，如下图所示：<br><a href="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517457805/Master.receiveAndReply_vdzfwo.png" target="_blank" rel="noopener"><img src="http://res.cloudinary.com/dod7hzkn2/image/upload/v1517457805/Master.receiveAndReply_vdzfwo.png" alt=""></a></p>
+<p>上图分为两部分：一部分是从远端接收消息RegisterWorker，将接收到的消息放入到Inbox中；另一部分是触发MessageLoop线程处理该消息，进而通过调用Inbox的process方法，继续调用RpcEndpoint（Master）的receiveAndReply方法，处理消息RegisterWorker，如下所示：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="type">RegisterWorker</span>(</span><br><span class="line"> id, workerHost, workerPort, workerRef, cores, memory, workerWebUiUrl, masterAddress) =&gt;</span><br><span class="line"> logInfo(<span class="string">"Registering worker %s:%d with %d cores, %s RAM"</span>.format(</span><br><span class="line"> workerHost, workerPort, cores, <span class="type">Utils</span>.megabytesToString(memory)))</span><br><span class="line"> <span class="keyword">if</span> (state == <span class="type">RecoveryState</span>.<span class="type">STANDBY</span>) &#123;</span><br><span class="line"> workerRef.send(<span class="type">MasterInStandby</span>)</span><br><span class="line"> &#125; <span class="keyword">else</span> <span class="keyword">if</span> (idToWorker.contains(id)) &#123;</span><br><span class="line"> workerRef.send(<span class="type">RegisterWorkerFailed</span>(<span class="string">"Duplicate worker ID"</span>))</span><br><span class="line"> &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"> <span class="keyword">val</span> worker = <span class="keyword">new</span> <span class="type">WorkerInfo</span>(id, workerHost, workerPort, cores, memory,</span><br><span class="line"> workerRef, workerWebUiUrl)</span><br><span class="line"> <span class="keyword">if</span> (registerWorker(worker)) &#123;</span><br><span class="line"> persistenceEngine.addWorker(worker)</span><br><span class="line"> workerRef.send(<span class="type">RegisteredWorker</span>(self, masterWebUiUrl, masterAddress))</span><br><span class="line"> schedule()</span><br><span class="line"> &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"> <span class="keyword">val</span> workerAddress = worker.endpoint.address</span><br><span class="line"> logWarning(<span class="string">"Worker registration failed. Attempted to re-register worker at same "</span> +</span><br><span class="line"> <span class="string">"address: "</span> + workerAddress)</span><br><span class="line"> workerRef.send(<span class="type">RegisterWorkerFailed</span>(<span class="string">"Attempted to re-register worker at same address: "</span></span><br><span class="line"> + workerAddress))</span><br><span class="line"> &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>如果Worker注册成功，则Master会通过context对象回复Worker响应</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">context.reply(<span class="type">RegisteredWorker</span>(self, masterWebUiUrl))</span><br></pre></td></tr></table></figure>
+<p>这样，如果一切正常，则Worker会收到RegisteredWorker响应消息，从而获取到Master的RpcEndpointRef引用对象，能够通过该引用对象与Master交互。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+    <div class="copyright">
+        <p><span>本文标题:</span><a  href="/2018/04/04/spark-network-rpc/">Spark RPC通信层设计原理分析</a></p>
+        <p><span>文章作者:</span><a  href="/" title="访问 Crazy Carry 的个人博客">Crazy Carry</a></p>
+        <p><span>发布时间:</span>2018年04月04日 - 16时08分</p>
+        <p><span>最后更新:</span>2018年04月04日 - 16时17分</p>
+        <p>
+            <span>原始链接:</span><a class="post-url" href="/2018/04/04/spark-network-rpc/" title="Spark RPC通信层设计原理分析">http://crazycarry.github.io/2018/04/04/spark-network-rpc/</a>
+            <span class="copy-path" data-clipboard-text="原文: http://crazycarry.github.io/2018/04/04/spark-network-rpc/　　作者: Crazy Carry" title=""></span>
+        </p>
+        <p>
+            <span>许可协议:</span><i class="fa fa-creative-commons"></i> <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/3.0/cn/" title="中国大陆 (CC BY-NC-SA 3.0 CN)" target = "_blank">"署名-非商用-相同方式共享 3.0"</a> 转载请保留原文链接及作者。
+        </p>
+    </div>
+
+
+
+<nav id="article-nav">
+  
+    <a  href="/2018/04/04/spark-memory-manager-02/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Spark 内存管理之UnifiedMemoryManager
+        
+      </div>
+    </a>
+  
+  
+    <a  href="/2018/04/04/spark-blockmanager/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Spark BlockManager分析</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+
+  
+</article>
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Spark-RPC层设计概览"><span class="toc-number">1.</span> <span class="toc-text">Spark RPC层设计概览</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#RpcEndpoint"><span class="toc-number">1.1.</span> <span class="toc-text">RpcEndpoint</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RpcEndpointRef"><span class="toc-number">1.2.</span> <span class="toc-text">RpcEndpointRef</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RpcEnv"><span class="toc-number">1.3.</span> <span class="toc-text">RpcEnv</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#创建NettyRpcEnv环境对象"><span class="toc-number">2.</span> <span class="toc-text">创建NettyRpcEnv环境对象</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#消息路由过程分析"><span class="toc-number">3.</span> <span class="toc-text">消息路由过程分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#本地消息路由"><span class="toc-number">4.</span> <span class="toc-text">本地消息路由</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#远程消息路由"><span class="toc-number">5.</span> <span class="toc-text">远程消息路由</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+<input type="button" id="tocButton" value="隐藏目录"  title="点击按钮隐藏或者显示文章目录">
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var valueHide = "隐藏目录";
+    var valueShow = "显示目录";
+    if ($(".left-col").is(":hidden")) {
+        $("#tocButton").attr("value", valueShow);
+    }
+    $("#tocButton").click(function() {
+        if ($("#toc").is(":hidden")) {
+            $("#tocButton").attr("value", valueHide);
+            $("#toc").slideDown(320);
+            $(".switch-btn, .switch-area").fadeOut(300);
+        }
+        else {
+            $("#tocButton").attr("value", valueShow);
+            $("#toc").slideUp(350);
+            $(".switch-btn, .switch-area").fadeIn(500);
+        }
+    })
+    if ($(".toc").length < 1) {
+        $("#toc, #tocButton").hide();
+        $(".switch-btn, .switch-area").show();
+    }
+</script>
+
+
+
+
+<div class="bdsharebuttonbox">
+	<a href="#" class="fx fa-weibo bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="fx fa-weixin bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="fx fa-qq bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+	<a href="#" class="fx fa-facebook-official bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="fx fa-twitter bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="fx fa-linkedin bds_linkedin" data-cmd="linkedin" title="分享到linkedin"></a>
+	<a href="#" class="fx fa-files-o bds_copy" data-cmd="copy" title="分享到复制网址"></a>
+</div>
+<script>window._bd_share_config={"common":{"bdSnsKey":{},"bdText":"","bdMini":"2","bdMiniList":false,"bdPic":"","bdStyle":"2","bdSize":"24"},"share":{}};with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)];</script>
+
+
+
+
+    
+        <section class="changyan" id="comments">
+  <!--<div id="uyan_frame"></div>-->
+  <div id="SOHUCS"></div>
+  <script charset="utf-8" type="text/javascript" src="https://changyan.sohu.com/upload/changyan.js"></script>
+  <script type="text/javascript">
+    window.changyan.api.config({
+      appid: 'xxxx',
+      conf: 'xxxxxxxxx'
+    });
+  </script>
+</section>
+    
+
+
+
+    <div class="scroll" id="post-nav-button">
+        
+            <a  href="/2018/04/04/spark-memory-manager-02/" title="上一篇: Spark 内存管理之UnifiedMemoryManager">
+                <i class="fa fa-angle-left"></i>
+            </a>
+        
+        <a title="文章列表"><i class="fa fa-bars"></i><i class="fa fa-times"></i></a>
+        
+            <a  href="/2018/04/04/spark-blockmanager/" title="下一篇: Spark BlockManager分析">
+                <i class="fa fa-angle-right"></i>
+            </a>
+        
+    </div>
+    <ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2018/04/06/java-gc-performance/">从实际案例聊聊Java应用的GC优化</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/05/java-cas/">深入分析CAS</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/05/java-volatile/">深入分析volatile</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/05/java-synchronized/">深入分析synchronized</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-eos/">Kafka设计解析（八）- Kafka Exactly Once语义与事务机制原理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-consume-detail/">Kafka消费者重新实现的细节</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-performance-why/">Kafka设计解析（六）- Kafka高性能架构之道</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-controller-source/">Kafka controller架构分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/kafka-controller-01/">Kafka controller 设计分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-memory-manager-02/">Spark 内存管理之UnifiedMemoryManager</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-network-rpc/">Spark RPC通信层设计原理分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-blockmanager/">Spark BlockManager分析</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-memory-manager/">Spark内存管理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-performance-02/">Spark性能优化指南——高级篇</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/04/spark-performance-01/">Spark性能优化指南——基础篇</a></li></ul>
+    <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+    <script>
+        $(".post-list").addClass("toc-article");
+        // $(".post-list-item a").attr("target","_blank");
+        $("#post-nav-button > a:nth-child(2)").click(function() {
+            $(".fa-bars, .fa-times").toggle();
+            $(".post-list").toggle(300);
+            if ($(".toc").length > 0) {
+                $("#toc, #tocButton").toggle(200, function() {
+                    if ($(".switch-area").is(":visible")) {
+                        $("#toc, .switch-btn, .switch-area").toggle();
+                        $("#tocButton").attr("value", valueHide);
+                        }
+                    })
+            }
+            else {
+                $(".switch-btn, .switch-area").fadeToggle(300);
+            }
+        })
+    </script>
+
+
+
+
+    <script>
+        
+    </script>
+
+</div>
+      <footer id="footer">
+    <div class="outer">
+        <div id="footer-info">
+            <div class="footer-left">
+                &copy; 2018 Crazy Carry
+            </div>
+            <div class="footer-right">
+                <a href="http://hexo.io/" target="_blank">Hexo &nbsp;&nbsp;</a><a href="https://github.com/maochunguang" target="_blank">Blog</a> by tommy
+            </div>
+        </div>
+        
+            <div class="visit">
+                
+                    <span id="busuanzi_container_site_pv" style='display:none'>
+                        <span id="site-visit" >极客到访数: 
+                            <span id="busuanzi_value_site_uv"></span>
+                        </span>
+                    </span>
+                
+                
+                    <span>, </span>
+                
+                
+                    <span id="busuanzi_container_page_pv" style='display:none'>
+                        <span id="page-visit">本页阅读量: 
+                            <span id="busuanzi_value_page_pv"></span>
+                        </span>
+                    </span>
+                
+            </div>
+        
+    </div>
+</footer>
+
+    </div>
+    <script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            var backgroundnum = 1;
+            var backgroundimg = "url(/background/bg-x.jpg)".replace(/x/gi, Math.ceil(Math.random() * backgroundnum));
+            $("#mobile-nav").css({"background-image": backgroundimg,"background-size": "cover","background-position": "center"});
+            $(".left-col").css({"background-image": backgroundimg,"background-size": "cover","background-position": "center"});
+        })
+    </script>
+
+
+<!-- Google Analytics -->
+<script type="text/javascript">
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'xxxxx', 'auto');
+ga('send', 'pageview');
+
+</script>
+<!-- End Google Analytics -->
+
+
+
+	<script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?xxxxxx";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+
+
+
+<div class="scroll" id="scroll">
+    <a href="#"><i class="fa fa-arrow-up"></i></a>
+    <a href="#comments"><i class="fa fa-comments-o"></i></a>
+    <a href="#footer"><i class="fa fa-arrow-down"></i></a>
+</div>
+<script>
+    $(document).ready(function() {
+        if ($("#comments").length < 1) {
+            $("#scroll > a:nth-child(2)").hide();
+        };
+    })
+</script>
+
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  <script language="javascript">
+    $(function() {
+        $("a[title]").each(function() {
+            var a = $(this);
+            var title = a.attr('title');
+            if (title == undefined || title == "") return;
+            a.data('title', title).removeAttr('title').hover(
+            function() {
+                var offset = a.offset();
+                $("<div id=\"anchortitlecontainer\"></div>").appendTo($("body")).html(title).css({
+                    top: offset.top - a.outerHeight() - 15,
+                    left: offset.left + a.outerWidth()/2 + 1
+                }).fadeIn(function() {
+                    var pop = $(this);
+                    setTimeout(function() {
+                        pop.remove();
+                    }, pop.text().length * 800);
+                });
+            }, function() {
+                $("#anchortitlecontainer").remove();
+            });
+        });
+    });
+</script>
+
+
+  </div>
+</body>
+</html>
